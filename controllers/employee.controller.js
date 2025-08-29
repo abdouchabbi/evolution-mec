@@ -3,6 +3,7 @@
 // -----------------------------------------------------------------------------
 const Employee = require('../models/employee.model');
 const mongoose = require('mongoose');
+const faceapi = require('face-api.js');
 
 /**
  * @desc    جلب قائمة بجميع الموظفين
@@ -41,30 +42,53 @@ const createEmployee = async (req, res) => {
 };
 
 /**
- * @desc    تسجيل بصمة الوجه لموظف
+ * @desc    تسجيل بصمة الوجه لموظف مع التحقق من عدم التكرار
  * @route   POST /api/employees/:name/face
  * @access  Public
  */
 const registerFace = async (req, res) => {
     try {
-        const employeeName = req.params.name;
+        const employeeNameToRegister = req.params.name.toUpperCase();
         const { descriptor } = req.body;
 
         if (!descriptor || !Array.isArray(descriptor) || descriptor.length === 0) {
             return res.status(400).json({ message: 'بيانات بصمة الوجه غير صالحة' });
         }
+        
+        const newDescriptor = new Float32Array(descriptor);
 
+        // FIX: التحقق من أن الوجه غير مسجل لموظف آخر
+        const allEmployees = await Employee.find({ faceDescriptor: { $exists: true, $ne: [] } });
+        
+        for (const employee of allEmployees) {
+            // لا تقارن الموظف بنفسه
+            if (employee.name === employeeNameToRegister) {
+                continue;
+            }
+
+            const storedDescriptor = new Float32Array(employee.faceDescriptor);
+            const distance = faceapi.euclideanDistance(newDescriptor, storedDescriptor);
+            
+            // إذا كان الوجه متشابهًا بدرجة كافية (المسافة صغيرة)، ارفض التسجيل
+            if (distance < 0.5) { // 0.5 هو حد شائع للمطابقة
+                return res.status(409).json({ message: `هذا الوجه مسجل بالفعل للموظف: ${employee.name}` });
+            }
+        }
+
+        // إذا كان الوجه فريدًا، قم بتحديث أو إنشاء الموظف
         const updatedEmployee = await Employee.findOneAndUpdate(
-            { name: employeeName.toUpperCase() },
+            { name: employeeNameToRegister },
             { faceDescriptor: descriptor },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
 
         res.status(200).json({ message: 'تم تسجيل بصمة الوجه بنجاح', employee: updatedEmployee });
     } catch (error) {
+        console.error("خطأ في تسجيل الوجه:", error);
         res.status(500).json({ message: 'حدث خطأ في الخادم عند تسجيل بصمة الوجه', error: error.message });
     }
 };
+
 
 /**
  * @desc    حذف موظف
@@ -85,8 +109,6 @@ const deleteEmployee = async (req, res) => {
             return res.status(404).json({ message: 'الموظف غير موجود' });
         }
         
-        // TODO: حذف سجلات الدوام المرتبطة بهذا الموظف
-        
         res.status(200).json({ message: 'تم حذف الموظف بنجاح' });
     } catch (error) {
         console.error("خطأ في حذف الموظف:", error);
@@ -98,5 +120,5 @@ module.exports = {
     getEmployees,
     createEmployee,
     registerFace,
-    deleteEmployee // إضافة الدالة الجديدة للتصدير
+    deleteEmployee
 };
