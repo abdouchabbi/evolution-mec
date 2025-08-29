@@ -1,23 +1,26 @@
 // -----------------------------------------------------------------------------
-// ملف مسارات الموظفين (routes/employee.routes.js) - محدث
+// ملف مسارات الموظفين (routes/employee.routes.js) - محدث بالحماية
 // -----------------------------------------------------------------------------
 const express = require('express');
 const router = express.Router();
+const {
+    getEmployees,
+    createEmployee,
+    registerFace,
+    deleteEmployee,
+} = require('../controllers/employee.controller');
+const { protect } = require('../middleware/auth.middleware'); // <-- استيراد وسيط الحماية
 
-// استيراد وحدة التحكم ككائن كامل لضمان استقرار الاستدعاءات
-const employeeController = require('../controllers/employee.controller');
-
-// المسار الرئيسي للموظفين: /api/employees
+// تطبيق الحماية على جميع المسارات في هذا الملف
+// الآن، لا يمكن الوصول إلى أي من هذه المسارات إلا بعد تسجيل الدخول وإرسال مفتاح الوصول (Token)
 router.route('/')
-    .get(employeeController.getEmployees)
-    .post(employeeController.createEmployee);
+    .get(protect, getEmployees)
+    .post(protect, createEmployee);
 
-// المسار الخاص بتسجيل بصمة الوجه: /api/employees/:name/face
-router.route('/:name/face')
-    .post(employeeController.registerFace);
-
-// المسار الخاص بحذف الموظف باستخدام الـ ID
 router.route('/:id')
-    .delete(employeeController.deleteEmployee);
+    .delete(protect, deleteEmployee);
+
+router.route('/:name/face')
+    .post(protect, registerFace);
 
 module.exports = router;

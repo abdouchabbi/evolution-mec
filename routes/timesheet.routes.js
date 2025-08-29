@@ -1,36 +1,18 @@
-
 // -----------------------------------------------------------------------------
-// ملف مسارات سجلات الدوام (routes/timesheet.routes.js)
-// -----------------------------------------------------------------------------
-// هذا الملف مسؤول عن تحديد "نقاط النهاية" (API Endpoints) الخاصة بسجلات الدوام.
-// كل مسار هنا يتم ربطه بدالة معينة من ملف الـ "Controller" الخاص بسجلات الدوام.
-// -----------------------------------------------------------------------------
-
-// 1. استيراد المكتبات والدوال اللازمة
+// ملف مسارات سجلات الدوام (routes/timesheet.routes.js) - محدث
 // -----------------------------------------------------------------------------
 const express = require('express');
-const router = express.Router(); // إنشاء نسخة من موجه Express
+const router = express.Router();
+const { getTimesheets, recordEntry, updateTimesheet } = require('../controllers/timesheet.controller');
 
-// استيراد الدوال من ملف متحكم سجلات الدوام (Controller)
-const {
-    getTimesheets,
-    recordEntry
-} = require('../controllers/timesheet.controller');
+// جلب سجلات الدوام (للبحث والتقارير)
+router.get('/', getTimesheets);
 
-// 2. تعريف المسارات وربطها بالدوال
-// -----------------------------------------------------------------------------
+// تسجيل حركة دخول أو خروج جديدة (للموظف)
+router.post('/entry', recordEntry);
 
-// المسار الرئيسي لجلب سجلات الدوام: /api/timesheets
-// يستخدم طلب GET ويستقبل المعلمات كـ query parameters
-router.route('/')
-    .get(getTimesheets);
+// تحديث سجل دوام موجود (للمدير)
+router.put('/:id', updateTimesheet);
 
-// المسار الخاص بتسجيل حركة جديدة (دخول أو خروج): /api/timesheets/entry
-// يستخدم طلب POST
-router.route('/entry')
-    .post(recordEntry);
 
-// 3. تصدير الموجه (Router)
-// -----------------------------------------------------------------------------
-// نقوم بتصدير الموجه ليتم استخدامه في الملف الرئيسي للخادم (server.js).
 module.exports = router;
