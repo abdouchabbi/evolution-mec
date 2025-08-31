@@ -9,7 +9,7 @@ const {
     registerFace,
     deleteEmployee,
 } = require('../controllers/employee.controller');
-const { protect } = require('../middleware/auth.middleware'); // <-- استيراد وسيط الحماية
+const { protect } = require('../middleware/auth.middleware.jr'); // <-- استيراد وسيط الحماية
 
 // تطبيق الحماية على جميع المسارات في هذا الملف
 // الآن، لا يمكن الوصول إلى أي من هذه المسارات إلا بعد تسجيل الدخول وإرسال مفتاح الوصول (Token)
