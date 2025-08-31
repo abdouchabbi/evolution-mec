@@ -1,11 +1,14 @@
-// -----------------------------------------------------------------------------
-// ملف نموذج المستخدم (models/user.model.js)
-// -----------------------------------------------------------------------------
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
-    username: {
+    name: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+    },
+    email: {
         type: String,
         required: true,
         unique: true,
@@ -15,19 +18,19 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true,
     }
+}, {
+    timestamps: true
 });
 
-// قبل حفظ المستخدم في قاعدة البيانات، نقوم بتشفير كلمة المرور
+// قبل حفظ المستخدم، تشفير كلمة المرور
 UserSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        return next();
-    }
+    if (!this.isModified('password')) return next();
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
 });
 
-// دالة لمقارنة كلمة المرور المدخلة بالكلمة المشفرة في قاعدة البيانات
+// دالة لمقارنة كلمة المرور
 UserSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
