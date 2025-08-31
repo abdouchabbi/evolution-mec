@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const faceapi = require('face-api.js');
 const Employee = require('../models/employee.model.js');
 const Timesheet = require('../models/timesheet.model.js');
 
@@ -75,13 +76,17 @@ const registerFace = asyncHandler(async (req, res) => {
     const { employeeId, descriptor } = req.body;
 
     // التحقق من تفرد بصمة الوجه
-    const existingEmployees = await Employee.find({ faceDescriptor: { $exists: true, $ne: [] } });
-    const faceMatcher = new faceapi.FaceMatcher(existingEmployees.map(e => new faceapi.LabeledFaceDescriptors(e.name, [new Float32Array(e.faceDescriptor)])));
-    const bestMatch = faceMatcher.findBestMatch(new Float32Array(descriptor));
+    const existingEmployees = await Employee.find({ _id: { $ne: employeeId }, faceDescriptor: { $exists: true, $ne: [] } });
+    
+    if (existingEmployees.length > 0) {
+        const labeledFaceDescriptors = existingEmployees.map(e => new faceapi.LabeledFaceDescriptors(e.name, [new Float32Array(e.faceDescriptor)]));
+        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); // 0.5 = 50% tolerance
+        const bestMatch = faceMatcher.findBestMatch(new Float32Array(descriptor));
 
-    if (bestMatch.label !== 'unknown') {
-         res.status(400);
-         throw new Error(`هذا الوجه مسجل بالفعل للموظف: ${bestMatch.label}`);
+        if (bestMatch.label !== 'unknown') {
+            res.status(400);
+            throw new Error(`هذا الوجه مسجل بالفعل للموظف: ${bestMatch.label}`);
+        }
     }
 
     const employee = await Employee.findById(employeeId);
