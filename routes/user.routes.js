@@ -1,40 +1,31 @@
-// routes/user.routes.js
 const express = require('express');
 const router = express.Router();
-
-// استيراد جميع الدوال من الكونترولر
 const {
     registerUser,
     loginUser,
-    getUsers,
-    deleteUser,
+    getUserProfile,
     updateUserProfile,
-    getUserProfile   // ✅ تأكد من إضافة هذه الدالة
-} = require('../controllers/user.controller.js');
+    getUsers,
+    deleteUser
+} = require('../controllers/user.controller');
+const { protect } = require('../middleware/auth.middleware');
 
-// استيراد Middleware الحماية
-const { protect } = require('../middleware/auth.middleware.js');
-
-// ==================== المسارات العامة (Public) ====================
+// تسجيل مستخدم جديد
+router.post('/register', registerUser);
 
 // تسجيل الدخول
 router.post('/login', loginUser);
 
-// ==================== المسارات المحمية (Private - Admin Only) ====================
+// جلب ملف التعريف (محمي)
+router.get('/profile', protect, getUserProfile);
 
-// تسجيل مستخدم جديد (Admin فقط)
-router.route('/register').post(protect, registerUser);
+// تحديث ملف التعريف (محمي)
+router.put('/profile', protect, updateUserProfile);
 
-// جلب جميع المستخدمين (Admin فقط)
-router.route('/').get(protect, getUsers);
+// الحصول على جميع المستخدمين (محمي للمدير)
+router.get('/', protect, getUsers);
 
-// حذف مستخدم (Admin فقط)
-router.route('/:id').delete(protect, deleteUser);
+// حذف مستخدم (محمي للمدير)
+router.delete('/:id', protect, deleteUser);
 
-// تحديث وقراءة بيانات الملف الشخصي للمستخدم
-router.route('/profile')
-    .get(protect, getUserProfile)       // قراءة بيانات الملف الشخصي
-    .put(protect, updateUserProfile);   // تعديل بيانات الملف الشخصي
-
-// تصدير الراوتر
 module.exports = router;

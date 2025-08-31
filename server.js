@@ -1,3 +1,10 @@
+// ------------------------------------------
+// server.js
+// ------------------------------------------
+
+// استخدام النسخة الصافية من TensorFlow.js على Node (Pure JS)
+require('@tensorflow/tfjs');
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -13,7 +20,6 @@ const timesheetRoutes = require('./routes/timesheet.routes.js');
 const userRoutes = require('./routes/user.routes.js');
 const { notFound, errorHandler } = require('./middleware/error.middleware.js');
 
-
 // -----------------------------------------------------------------------------
 // بدء تشغيل الخادم
 // -----------------------------------------------------------------------------
@@ -22,7 +28,7 @@ async function startServer() {
     await loadModels();
 
     // الاتصال بقاعدة البيانات
-    connectDB();
+    await connectDB();
 
     const app = express();
     const PORT = process.env.PORT || 5000;
