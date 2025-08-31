@@ -1,41 +1,53 @@
-
-// -----------------------------------------------------------------------------
-// ملف نموذج الموظف (models/employee.model.js)
-// -----------------------------------------------------------------------------
-// هذا الملف يعرف "هيكل" (Schema) بيانات الموظف.
-// الهيكل يحدد الحقول التي سيمتلكها كل موظف في قاعدة البيانات،
-// أنواع البيانات لهذه الحقول، وأي قواعد خاصة بها (مثل أن يكون الاسم فريدًا).
-// -----------------------------------------------------------------------------
-
-// 1. استيراد مكتبة Mongoose
-// -----------------------------------------------------------------------------
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-// 2. تعريف هيكل بيانات الموظف (EmployeeSchema)
-// -----------------------------------------------------------------------------
-const EmployeeSchema = new mongoose.Schema({
-    // حقل لاسم الموظف
+const employeeSchema = new mongoose.Schema({
     name: {
-        type: String,       // نوع البيانات: نص
-        required: true,     // هذا الحقل إجباري
-        unique: true,       // يجب أن يكون اسم كل موظف فريدًا (لا يتكرر)
-        uppercase: true,    // سيتم تخزين الاسم دائمًا بأحرف كبيرة لتوحيد البيانات
-        trim: true          // سيتم إزالة أي مسافات فارغة من بداية ونهاية الاسم
+        type: String,
+        required: true,
+        unique: true,
+        uppercase: true,
     },
-    // حقل لتخزين بصمة الوجه الرقمية
     faceDescriptor: {
-        type: [Number],     // نوع البيانات: مصفوفة من الأرقام
-        required: false     // هذا الحقل ليس إجباريًا عند إنشاء الموظف لأول مرة
+        type: [Number],
     },
-    // حقل لتسجيل تاريخ إنشاء سجل الموظف تلقائيًا
-    createdAt: {
-        type: Date,         // نوع البيانات: تاريخ
-        default: Date.now   // القيمة الافتراضية هي تاريخ ووقت الإنشاء الحالي
+    pin: {
+        type: String,
+    },
+}, {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+// Virtual property to check if face descriptor exists
+employeeSchema.virtual('hasFaceDescriptor').get(function() {
+    return this.faceDescriptor && this.faceDescriptor.length > 0;
+});
+
+// Virtual property to check if PIN exists
+employeeSchema.virtual('hasPin').get(function() {
+    return !!this.pin;
+});
+
+// Hash PIN before saving
+employeeSchema.pre('save', async function(next) {
+    if (!this.isModified('pin')) {
+        next();
+    }
+    if(this.pin) {
+        const salt = await bcrypt.genSalt(10);
+        this.pin = await bcrypt.hash(this.pin, salt);
     }
 });
 
-// 3. تصدير النموذج (Model)
-// -----------------------------------------------------------------------------
-// نقوم بإنشاء وتصدير النموذج المسمى "Employee" بناءً على الهيكل الذي عرفناه.
-// سنستخدم هذا النموذج في ملفات الـ "Controller" للتفاعل مع بيانات الموظفين.
-module.exports = mongoose.model('Employee', EmployeeSchema);
+// Method to compare entered PIN with hashed PIN
+employeeSchema.methods.matchPin = async function(enteredPin) {
+    if(!this.pin) return false;
+    return await bcrypt.compare(enteredPin, this.pin);
+};
+
+
+const Employee = mongoose.model('Employee', employeeSchema);
+
+module.exports = Employee;
