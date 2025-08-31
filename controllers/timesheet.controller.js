@@ -71,7 +71,7 @@ const recordEntry = asyncHandler(async (req, res) => {
     // 2. مقارنة بصمات الوجوه
     const registeredDescriptor = new Float32Array(employee.faceDescriptor);
     const newDescriptor = new Float32Array(faceDescriptor);
-    const distance = faceapi.euclideanDistance(registeredDescriptor, newDescriptor);
+    const distance = faceApiForNode.euclideanDistance(registeredDescriptor, newDescriptor);
     
     // 0.6 is a common threshold for face recognition
     if (distance > 0.6) {
@@ -113,10 +113,13 @@ const updateTimesheet = asyncHandler(async (req, res) => {
     const timesheet = await Timesheet.findById(req.params.id);
 
     if (timesheet) {
-        timesheet.project = req.body.project || timesheet.project;
-        timesheet.description = req.body.description || timesheet.description;
-        timesheet.entries = req.body.entries || timesheet.entries;
-        timesheet.totalHours = calculateTotalHours(timesheet.entries);
+        timesheet.project = req.body.project === undefined ? timesheet.project : req.body.project;
+        timesheet.description = req.body.description === undefined ? timesheet.description : req.body.description;
+        
+        if (req.body.entries) {
+            timesheet.entries = req.body.entries;
+            timesheet.totalHours = calculateTotalHours(timesheet.entries);
+        }
 
         const updatedTimesheet = await timesheet.save();
         res.json(updatedTimesheet);
@@ -132,3 +135,4 @@ module.exports = {
     recordEntry,
     updateTimesheet
 };
+
