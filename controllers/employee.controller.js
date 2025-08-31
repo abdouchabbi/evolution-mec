@@ -7,18 +7,21 @@ const faceapi = require('face-api.js');
 // @route   GET /api/employees
 // @access  Private
 const getEmployees = asyncHandler(async (req, res) => {
-    // We fetch all fields, including the faceDescriptor, but will not send it to the client
+    // We fetch all fields to accurately determine the face descriptor status
     const employees = await Employee.find({});
     
-    // Manually map the response to ensure hasFaceDescriptor is correct and sensitive data is excluded
-    res.json(
-        employees.map((emp) => ({
+    // Manually map the response to ensure hasFaceDescriptor is correct and to exclude sensitive data
+    const employeesWithStatus = employees.map((emp) => {
+        // This is a direct and reliable check, avoiding potential issues with virtual properties
+        const hasDescriptor = emp.faceDescriptor && emp.faceDescriptor.length > 0;
+        return {
             _id: emp._id,
             name: emp.name,
-            // Explicitly check for the existence and content of faceDescriptor
-            hasFaceDescriptor: !!emp.faceDescriptor && emp.faceDescriptor.length > 0,
-        }))
-    );
+            hasFaceDescriptor: hasDescriptor,
+        };
+    });
+
+    res.json(employeesWithStatus);
 });
 
 
