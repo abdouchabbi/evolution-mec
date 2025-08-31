@@ -6,7 +6,7 @@ const { faceApiForNode, canvas } = require('../faceApi');
 /**
  * دالة مساعدة لحساب إجمالي ساعات العمل.
  * @param {Array} entries - مصفوفة تسجيلات الدخول والخروج.
- * @returns {number} - إجمالي ساعات العمل بالثواني.
+ * @returns {number} - إجمالي ساعات العمل بالساعات.
  */
 function calculateTotalHours(entries) {
     let totalSeconds = 0;
@@ -48,7 +48,7 @@ const getTimesheets = asyncHandler(async (req, res) => {
  * @route   POST /api/timesheets/entry
  * @access  Public (Employee)
  */
-const recordEntry = asyncHandler(async (req, res) => {
+const createOrUpdateEntry = asyncHandler(async (req, res) => {
     const { employeeName, date, time, location, faceDescriptor } = req.body;
     
     if (!employeeName || !date || !time || !location) {
@@ -132,7 +132,7 @@ const updateTimesheet = asyncHandler(async (req, res) => {
 
 module.exports = {
     getTimesheets,
-    recordEntry,
+    createOrUpdateEntry,
     updateTimesheet
 };
 
