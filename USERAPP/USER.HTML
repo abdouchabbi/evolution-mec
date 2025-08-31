@@ -405,28 +405,26 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
 
-                doc.addFont('/path/to/cairo.ttf', 'Cairo', 'normal'); // You need to host the font file
-                doc.setFont('Cairo');
-
+                // Note: jsPDF has limited Arabic support. This may require a custom font.
                 doc.setFontSize(18);
-                doc.text(`تقرير الحضور لشهر ${month} ${year}`, 105, 20, { align: 'center' });
+                doc.text(`Monthly Report: ${month} ${year}`, 105, 20, { align: 'center' });
                 doc.setFontSize(12);
-                doc.text(`الموظف: ${employeeData.name}`, 20, 30);
+                doc.text(`Employee: ${employeeData.name}`, 20, 30);
                 
                 const tableData = currentReportData.flatMap(record => {
                     return record.entries.map(entry => [
-                        new Date(record.date).toLocaleDateString('ar-EG'),
-                        entry.type === 'check-in' ? 'دخول' : 'خروج',
+                        new Date(record.date).toLocaleDateString('en-CA'),
+                        entry.type === 'check-in' ? 'Check-in' : 'Check-out',
                         entry.time,
                         `${entry.location.lat}, ${entry.location.lon}`
                     ]);
                 });
 
                 doc.autoTable({
-                    head: [['التاريخ', 'الحركة', 'الوقت', 'الموقع (GPS)']],
+                    head: [['Date', 'Type', 'Time', 'Location (GPS)']],
                     body: tableData,
                     startY: 40,
-                    styles: { font: "Cairo", halign: 'center' },
+                    styles: { halign: 'center' },
                     headStyles: { fillColor: [79, 70, 229] },
                 });
 
@@ -450,9 +448,11 @@
                 viewReportBtn.addEventListener('click', viewMonthlyReport);
                 exportPdfBtn.addEventListener('click', exportReportAsPDF);
                 
+                // Start loading models in the background after showing the UI
                 loadFaceApiModels();
             }
 
+            // --- Call Startup ---
             startup();
         });
     </script>
