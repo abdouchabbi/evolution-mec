@@ -1,18 +1,19 @@
-// -----------------------------------------------------------------------------
-// ملف مسارات سجلات الدوام (routes/timesheet.routes.js) - محدث
-// -----------------------------------------------------------------------------
 const express = require('express');
 const router = express.Router();
-const { getTimesheets, recordEntry, updateTimesheet } = require('../controllers/timesheet.controller');
+const {
+    getTimesheets,
+    createOrUpdateEntry,
+    updateTimesheet,
+} = require('../controllers/timesheet.controller.js');
+const { protect } = require('../middleware/auth.middleware.js');
 
-// جلب سجلات الدوام (للبحث والتقارير)
-router.get('/', getTimesheets);
+// -----------------------------------------------------------------------------
+// تم الآن تأمين جميع المسارات المتعلقة بسجلات الدوام.
+// لا يمكن لأي شخص التعامل مع هذه البيانات الحساسة إلا إذا كان مديرًا مصرحًا له.
+// -----------------------------------------------------------------------------
 
-// تسجيل حركة دخول أو خروج جديدة (للموظف)
-router.post('/entry', recordEntry);
-
-// تحديث سجل دوام موجود (للمدير)
-router.put('/:id', updateTimesheet);
-
+router.route('/').get(protect, getTimesheets);
+router.route('/entry').post(protect, createOrUpdateEntry);
+router.route('/:id').put(protect, updateTimesheet);
 
 module.exports = router;

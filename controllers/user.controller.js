@@ -3,9 +3,9 @@ const User = require('../models/user.model.js');
 const generateToken = require('../utils/generateToken.js');
 
 /**
- * @desc    تسجيل حساب مستخدم جديد
+ * @desc    تسجيل حساب مستخدم جديد (يمكن استخدامه من قبل مدير آخر)
  * @route   POST /api/users/register
- * @access  Public
+ * @access  Private (Admin)
  */
 const registerUser = asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
@@ -28,7 +28,6 @@ const registerUser = asyncHandler(async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            token: generateToken(user._id),
         });
     } else {
         res.status(400);
@@ -43,7 +42,6 @@ const registerUser = asyncHandler(async (req, res) => {
  */
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
@@ -60,16 +58,65 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    الحصول على ملف تعريف المستخدم
- * @route   GET /api/users/profile
- * @access  Private
+ * @desc    الحصول على جميع المستخدمين
+ * @route   GET /api/users
+ * @access  Private (Admin)
  */
-const getUserProfile = asyncHandler(async (req, res) => {
-    res.json({
-        _id: req.user._id,
-        name: req.user.name,
-        email: req.user.email,
-    });
+const getUsers = asyncHandler(async (req, res) => {
+    const users = await User.find({}).select('-password');
+    res.json(users);
 });
 
-module.exports = { registerUser, loginUser, getUserProfile };
+/**
+ * @desc    حذف مستخدم
+ * @route   DELETE /api/users/:id
+ * @access  Private (Admin)
+ */
+const deleteUser = asyncHandler(async (req, res) => {
+    // يمنع المدير من حذف نفسه
+    if (req.user._id.toString() === req.params.id) {
+        res.status(400);
+        throw new Error("لا يمكنك حذف حسابك الخاص.");
+    }
+
+    const user = await User.findById(req.params.id);
+    if (user) {
+        await user.deleteOne();
+        res.json({ message: 'تم حذف المستخدم بنجاح' });
+    } else {
+        res.status(404);
+        throw new Error('المستخدم غير موجود');
+    }
+});
+
+/**
+ * @desc    تحديث ملف تعريف المستخدم (لتغيير كلمة المرور)
+ * @route   PUT /api/users/profile
+ * @access  Private
+ */
+const updateUserProfile = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        user.name = req.body.name || user.name;
+        user.email = req.body.email || user.email;
+        if (req.body.password) {
+            user.password = req.body.password;
+        }
+
+        const updatedUser = await user.save();
+        res.json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            token: generateToken(updatedUser._id), // إصدار مفتاح جديد
+        });
+    } else {
+        res.status(404);
+        throw new Error('المستخدم غير موجود');
+    }
+});
+
+
+module.exports = { registerUser, loginUser, getUsers, deleteUser, updateUserProfile };
+

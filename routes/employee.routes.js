@@ -1,26 +1,28 @@
-// -----------------------------------------------------------------------------
-// ملف مسارات الموظفين (routes/employee.routes.js) - محدث بالحماية
-// -----------------------------------------------------------------------------
 const express = require('express');
 const router = express.Router();
 const {
-    getEmployees,
     createEmployee,
+    loginEmployee,
+    getEmployees,
     registerFace,
-    deleteEmployee,
-} = require('../controllers/employee.controller');
-const { protect } = require('../middleware/auth.middleware.jr'); // <-- استيراد وسيط الحماية
+    deleteEmployee
+} = require('../controllers/employee.controller.js');
+const { protect } = require('../middleware/auth.middleware.js');
 
-// تطبيق الحماية على جميع المسارات في هذا الملف
-// الآن، لا يمكن الوصول إلى أي من هذه المسارات إلا بعد تسجيل الدخول وإرسال مفتاح الوصول (Token)
+// === المسارات العامة (Public) ===
+// مسار جديد ومخصص لتسجيل دخول الموظف
+router.post('/login', loginEmployee);
+
+// === المسارات المحمية (Private - Admin Only) ===
+// هذه المسارات لا يمكن الوصول إليها إلا من قبل مدير مسجل دخوله
 router.route('/')
-    .get(protect, getEmployees)
-    .post(protect, createEmployee);
+    .post(protect, createEmployee)
+    .get(protect, getEmployees);
 
 router.route('/:id')
     .delete(protect, deleteEmployee);
+    
+router.post('/face', protect, registerFace);
 
-router.route('/:name/face')
-    .post(protect, registerFace);
 
 module.exports = router;

@@ -5,11 +5,12 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const { loadModels } = require('./faceApi'); // استيراد خدمة تحميل النماذج
 
+// استيراد جميع ملفات المسارات
 const employeeRoutes = require('./routes/employee.routes.js');
 const clientRoutes = require('./routes/client.routes.js');
 const projectRoutes = require('./routes/project.routes.js');
 const timesheetRoutes = require('./routes/timesheet.routes.js');
-const userRoutes = require('./routes/user.routes.js'); // <-- الخطوة 1: استيراد مسارات المستخدمين
+const userRoutes = require('./routes/user.routes.js');
 const { notFound, errorHandler } = require('./middleware/error.middleware.js');
 
 
@@ -36,17 +37,12 @@ async function startServer() {
         res.send('Evolution MEC API is running successfully.');
     });
 
-    // تعريف المسارات الأساسية للـ API
-    app.get('/api', (req, res) => {
-        res.send('API is running...');
-    });
-
-    // ربط وحدات المسارات (API Routes)
+    // ربط جميع وحدات المسارات (API Routes)
     app.use('/api/employees', employeeRoutes);
     app.use('/api/clients', clientRoutes);
     app.use('/api/projects', projectRoutes);
     app.use('/api/timesheets', timesheetRoutes);
-    app.use('/api/users', userRoutes); // <-- الخطوة 2: ربط مسارات المستخدمين
+    app.use('/api/users', userRoutes);
 
     // وسيطات معالجة الأخطاء
     app.use(notFound);
@@ -59,4 +55,3 @@ async function startServer() {
 }
 
 startServer();
-

@@ -1,39 +1,43 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const UserSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
+const userSchema = mongoose.Schema(
+    {
+        name: { // تأكد من أنه يستخدم "name" وليس "username"
+            type: String,
+            required: true,
+        },
+        email: {
+            type: String,
+            required: true,
+            unique: true,
+        },
+        password: {
+            type: String,
+            required: true,
+        },
     },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-    },
-    password: {
-        type: String,
-        required: true,
+    {
+        timestamps: true,
     }
-}, {
-    timestamps: true
-});
+);
 
-// قبل حفظ المستخدم، تشفير كلمة المرور
-UserSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) return next();
+// تشفير كلمة المرور تلقائيًا قبل حفظها في قاعدة البيانات
+userSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) {
+        next();
+    }
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
 });
 
-// دالة لمقارنة كلمة المرور
-UserSchema.methods.matchPassword = async function (enteredPassword) {
+// إضافة دالة لمقارنة كلمة المرور المدخلة بالكلمة المشفرة
+userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const User = mongoose.model('User', UserSchema);
+
+const User = mongoose.model('User', userSchema);
+
 module.exports = User;
+

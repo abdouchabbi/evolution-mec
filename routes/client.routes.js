@@ -1,36 +1,18 @@
-// -----------------------------------------------------------------------------
-// ملف مسارات العملاء (routes/client.routes.js)
-// -----------------------------------------------------------------------------
-// هذا الملف مسؤول عن تحديد "نقاط النهاية" (API Endpoints) الخاصة بالعملاء.
-// كل مسار هنا يتم ربطه بدالة معينة من ملف الـ "Controller" الخاص بالعملاء.
-// -----------------------------------------------------------------------------
-
-// 1. استيراد المكتبات والدوال اللازمة
-// -----------------------------------------------------------------------------
 const express = require('express');
-const router = express.Router(); // إنشاء نسخة من موجه Express
-
-// استيراد الدوال من ملف متحكم العملاء (Controller)
+const router = express.Router();
 const {
     getClients,
     createClient,
-    deleteClient
-} = require('../controllers/client.controller');
+    deleteClient,
+} = require('../controllers/client.controller.js');
+const { protect } = require('../middleware/auth.middleware.js');
 
-// 2. تعريف المسارات وربطها بالدوال
+// -----------------------------------------------------------------------------
+// تم الآن تأمين جميع هذه المسارات. لا يمكن لأي شخص إضافة، عرض، أو حذف
+// العملاء إلا إذا كان مديرًا وقام بتسجيل الدخول بنجاح.
 // -----------------------------------------------------------------------------
 
-// المسار الرئيسي للعملاء: /api/clients
-router.route('/')
-    .get(getClients)      // عند وصول طلب GET، قم بتشغيل دالة getClients
-    .post(createClient);  // عند وصول طلب POST، قم بتشغيل دالة createClient
+router.route('/').get(protect, getClients).post(protect, createClient);
+router.route('/:id').delete(protect, deleteClient);
 
-// المسار الخاص بحذف عميل معين: /api/clients/:id
-// :id هو متغير ديناميكي يمثل المعرف الفريد (ID) للعميل في قاعدة البيانات
-router.route('/:id')
-    .delete(deleteClient); // عند وصول طلب DELETE، قم بتشغيل دالة deleteClient
-
-// 3. تصدير الموجه (Router)
-// -----------------------------------------------------------------------------
-// نقوم بتصدير الموجه ليتم استخدامه في الملف الرئيسي للخادم (server.js).
 module.exports = router;

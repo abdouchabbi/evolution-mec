@@ -1,124 +1,128 @@
-// -----------------------------------------------------------------------------
-// ملف متحكم الموظفين (controllers/employee.controller.js) - محدث
-// -----------------------------------------------------------------------------
-const Employee = require('../models/employee.model');
+const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
-const faceapi = require('face-api.js');
+const Employee = require('../models/employee.model.js');
+const Timesheet = require('../models/timesheet.model.js');
 
-/**
- * @desc    جلب قائمة بجميع الموظفين
- * @route   GET /api/employees
- * @access  Public
- */
-const getEmployees = async (req, res) => {
-    try {
+// @desc    تسجيل موظف جديد
+// @route   POST /api/employees
+// @access  Private (Admin)
+const createEmployee = asyncHandler(async (req, res) => {
+    const { name } = req.body;
+    const employeeExists = await Employee.findOne({ name: name.toUpperCase() });
+
+    if (employeeExists) {
+        res.status(400);
+        throw new Error('الموظف مسجل بالفعل');
+    }
+
+    const employee = await Employee.create({ name: name.toUpperCase() });
+    res.status(201).json(employee);
+});
+
+// @desc    تسجيل دخول الموظف والتحقق من وجوده
+// @route   POST /api/employees/login
+// @access  Public
+const loginEmployee = asyncHandler(async (req, res) => {
+    const { name } = req.body;
+    if (!name) {
+        res.status(400);
+        throw new Error('اسم الموظف مطلوب');
+    }
+
+    // البحث عن الموظف (غير حساس لحالة الأحرف)
+    const employee = await Employee.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+
+    if (employee) {
+        res.json({
+            _id: employee._id,
+            name: employee.name,
+            hasFaceDescriptor: !!employee.faceDescriptor && employee.faceDescriptor.length > 0,
+            faceDescriptor: employee.faceDescriptor
+        });
+    } else {
+        res.status(404);
+        throw new Error('الموظف غير موجود');
+    }
+});
+
+
+// @desc    جلب جميع الموظفين (للمدير)
+// @route   GET /api/employees
+// @access  Private (Admin)
+const getEmployees = asyncHandler(async (req, res) => {
+    // Check if a specific employee is requested by name (for employee app login)
+    if (req.query.name) {
+        const employee = await Employee.findOne({ name: req.query.name.toUpperCase() });
+        if (employee) {
+            res.json([employee]); // Return as an array to match frontend expectation
+        } else {
+            res.json([]);
+        }
+    } else {
+        // Otherwise, return all employees for the admin panel
         const employees = await Employee.find({});
-        res.status(200).json(employees);
-    } catch (error) {
-        res.status(500).json({ message: 'حدث خطأ في الخادم عند جلب الموظفين', error: error.message });
+        res.json(employees);
     }
-};
+});
 
-/**
- * @desc    إضافة موظف جديد
- * @route   POST /api/employees
- * @access  Public
- */
-const createEmployee = async (req, res) => {
-    try {
-        const { name } = req.body;
-        if (!name) {
-            return res.status(400).json({ message: 'حقل الاسم مطلوب' });
-        }
-        const newEmployee = new Employee({ name });
-        await newEmployee.save();
-        res.status(201).json(newEmployee);
-    } catch (error) {
-        if (error.code === 11000) {
-            return res.status(400).json({ message: 'اسم الموظف مستخدم بالفعل' });
-        }
-        res.status(500).json({ message: 'حدث خطأ في الخادم عند إضافة الموظف', error: error.message });
+// @desc    تسجيل بصمة الوجه لموظف
+// @route   POST /api/employees/face
+// @access  Private (Admin)
+const registerFace = asyncHandler(async (req, res) => {
+    const { employeeId, descriptor } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+        res.status(400);
+        throw new Error('معرف الموظف غير صالح');
     }
-};
-
-/**
- * @desc    تسجيل بصمة الوجه لموظف مع التحقق من عدم التكرار
- * @route   POST /api/employees/:name/face
- * @access  Public
- */
-const registerFace = async (req, res) => {
-    try {
-        const employeeNameToRegister = req.params.name.toUpperCase();
-        const { descriptor } = req.body;
-
-        if (!descriptor || !Array.isArray(descriptor) || descriptor.length === 0) {
-            return res.status(400).json({ message: 'بيانات بصمة الوجه غير صالحة' });
-        }
-        
-        const newDescriptor = new Float32Array(descriptor);
-
-        // FIX: التحقق من أن الوجه غير مسجل لموظف آخر
-        const allEmployees = await Employee.find({ faceDescriptor: { $exists: true, $ne: [] } });
-        
-        for (const employee of allEmployees) {
-            // لا تقارن الموظف بنفسه
-            if (employee.name === employeeNameToRegister) {
-                continue;
-            }
-
-            const storedDescriptor = new Float32Array(employee.faceDescriptor);
-            const distance = faceapi.euclideanDistance(newDescriptor, storedDescriptor);
-            
-            // إذا كان الوجه متشابهًا بدرجة كافية (المسافة صغيرة)، ارفض التسجيل
-            if (distance < 0.5) { // 0.5 هو حد شائع للمطابقة
-                return res.status(409).json({ message: `هذا الوجه مسجل بالفعل للموظف: ${employee.name}` });
-            }
-        }
-
-        // إذا كان الوجه فريدًا، قم بتحديث أو إنشاء الموظف
-        const updatedEmployee = await Employee.findOneAndUpdate(
-            { name: employeeNameToRegister },
-            { faceDescriptor: descriptor },
-            { new: true, upsert: true, setDefaultsOnInsert: true }
-        );
-
-        res.status(200).json({ message: 'تم تسجيل بصمة الوجه بنجاح', employee: updatedEmployee });
-    } catch (error) {
-        console.error("خطأ في تسجيل الوجه:", error);
-        res.status(500).json({ message: 'حدث خطأ في الخادم عند تسجيل بصمة الوجه', error: error.message });
-    }
-};
-
-
-/**
- * @desc    حذف موظف
- * @route   DELETE /api/employees/:id
- * @access  Public
- */
-const deleteEmployee = async (req, res) => {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "صيغة معرّف الموظف غير صالحة" });
+    
+    // التحقق من أن هذه البصمة غير مسجلة لموظف آخر
+    const existingEmployeeWithFace = await Employee.findOne({ faceDescriptor: descriptor });
+    if (existingEmployeeWithFace && existingEmployeeWithFace._id.toString() !== employeeId) {
+        res.status(400);
+        throw new Error('هذا الوجه مسجل بالفعل لموظف آخر.');
     }
 
-    try {
-        const deletedEmployee = await Employee.findByIdAndDelete(id);
+    const employee = await Employee.findById(employeeId);
 
-        if (!deletedEmployee) {
-            return res.status(404).json({ message: 'الموظف غير موجود' });
-        }
-        
-        res.status(200).json({ message: 'تم حذف الموظف بنجاح' });
-    } catch (error) {
-        console.error("خطأ في حذف الموظف:", error);
-        res.status(500).json({ message: 'حدث خطأ في الخادم عند حذف الموظف' });
+    if (employee) {
+        employee.faceDescriptor = descriptor;
+        employee.hasFaceDescriptor = true;
+        await employee.save();
+        res.json({ message: 'تم تسجيل بصمة الوجه بنجاح' });
+    } else {
+        res.status(404);
+        throw new Error('الموظف غير موجود');
     }
-};
+});
+
+// @desc    حذف موظف
+// @route   DELETE /api/employees/:id
+// @access  Private (Admin)
+const deleteEmployee = asyncHandler(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        res.status(400);
+        throw new Error('معرف الموظف غير صالح');
+    }
+
+    const employee = await Employee.findById(req.params.id);
+
+    if (employee) {
+        // حذف جميع سجلات الدوام المرتبطة به أيضًا
+        await Timesheet.deleteMany({ employeeName: employee.name });
+        await employee.deleteOne();
+        res.json({ message: 'تم حذف الموظف وجميع سجلاته بنجاح' });
+    } else {
+        res.status(404);
+        throw new Error('الموظف غير موجود');
+    }
+});
+
 
 module.exports = {
-    getEmployees,
     createEmployee,
+    loginEmployee,
+    getEmployees,
     registerFace,
-    deleteEmployee
+    deleteEmployee,
 };
