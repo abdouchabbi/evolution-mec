@@ -1,33 +1,28 @@
 // -----------------------------------------------------------------------------
-// ملف وسيط المصادقة (middleware/auth.middleware.js) - محدث
+// middleware/error.middleware.js
 // -----------------------------------------------------------------------------
-const jwt = require('jsonwebtoken');
-const User = require('../models/user.model');
 
-const protect = async (req, res, next) => {
-    let token;
+// وسيط لمعالجة الأخطاء
+const errorHandler = (err, req, res, next) => {
+    // إذا السيرفر أرسل statusCode قبل الخطأ، استعمله، وإلا 500
+    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        try {
-            // احصل على المفتاح من الترويسة
-            token = req.headers.authorization.split(' ')[1];
-
-            // تحقق من صحة المفتاح
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-            // أرفق معلومات المستخدم بالطلب
-            req.user = await User.findById(decoded.id).select('-password');
-            
-            next();
-        } catch (error) {
-            return res.status(401).json({ message: 'غير مصرح لك بالوصول، المفتاح غير صالح' });
-        }
-    }
-
-    if (!token) {
-        res.status(401).json({ message: 'غير مصرح لك بالوصول، لا يوجد مفتاح' });
-    }
+    res.status(statusCode).json({
+        success: false,
+        message: err.message || "حدث خطأ غير متوقع",
+        // إظهار stack فقط في وضع التطوير (لتسهيل التصحيح)
+        stack: process.env.NODE_ENV === "production" ? null : err.stack
+    });
 };
 
-module.exports = { protect };
+// وسيط للـ 404 (لم يتم العثور على المسار)
+const notFound = (req, res, next) => {
+    const error = new Error(`لم يتم العثور على المسار: ${req.originalUrl}`);
+    res.status(404);
+    next(error);
+};
 
+module.exports = {
+    errorHandler,
+    notFound
+};
