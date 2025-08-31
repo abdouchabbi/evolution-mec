@@ -1,0 +1,41 @@
+const jwt = require('jsonwebtoken');
+const asyncHandler = require('express-async-handler');
+const User = require('../models/user.model.js');
+
+/**
+ * وسيط لحماية المسارات.
+ * يقوم بالتحقق من مفتاح الدخول (JWT Token) المرفق مع الطلب.
+ */
+const protect = asyncHandler(async (req, res, next) => {
+    let token;
+
+    // التحقق مما إذا كان مفتاح الدخول موجودًا في ترويسة الطلب ويبدأ بـ "Bearer"
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            // 1. استخراج المفتاح من الترويسة (إزالة كلمة "Bearer")
+            token = req.headers.authorization.split(' ')[1];
+
+            // 2. فك تشفير المفتاح للتحقق من صحته والحصول على معرّف المستخدم
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+            // 3. جلب بيانات المستخدم من قاعدة البيانات باستخدام المعرّف الموجود في المفتاح
+            // نستبعد كلمة المرور من البيانات التي يتم جلبها
+            req.user = await User.findById(decoded.id).select('-password');
+
+            // 4. الانتقال إلى الدالة التالية (المتحكم)
+            next();
+        } catch (error) {
+            console.error(error);
+            res.status(401); // Unauthorized
+            throw new Error('غير مصرح لك بالوصول، المفتاح غير صالح');
+        }
+    }
+
+    if (!token) {
+        res.status(401);
+        throw new Error('غير مصرح لك بالوصول، لا يوجد مفتاح دخول');
+    }
+});
+
+module.exports = { protect };
+
