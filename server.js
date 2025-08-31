@@ -31,6 +31,11 @@ async function startServer() {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+    // تعريف المسار الرئيسي للخادم
+    app.get('/', (req, res) => {
+        res.send('Evolution MEC API is running successfully.');
+    });
+
     // تعريف المسارات الأساسية للـ API
     app.get('/api', (req, res) => {
         res.send('API is running...');
