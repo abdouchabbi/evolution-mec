@@ -7,7 +7,8 @@ const {
     createEmployee,
     updateEmployee,
     registerFace,
-    deleteEmployee
+    deleteEmployee,
+    setEmployeePin
 } = require('../controllers/employee.controller.js');
 const { protect } = require('../middleware/auth.middleware.js');
 
@@ -32,6 +33,9 @@ router.route('/')
     .post(protect, createEmployee);
 
 router.route('/face').post(protect, registerFace);
+
+// مسار لتعيين أو تحديث رمز PIN للموظف
+router.route('/:id/set-pin').put(protect, setEmployeePin);
 
 router.route('/:id')
     .put(protect, updateEmployee)

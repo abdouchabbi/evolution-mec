@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم المدير</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+        body { font-family: 'Cairo', sans-serif; }
+        .sidebar-link { transition: all 0.2s ease; }
+        .sidebar-link.active { background-color: #4f46e5; color: white; }
+        .sidebar-link:not(.active):hover { background-color: #3730a3; color: white; }
+        .modal { transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
+        .loader {
+            border: 4px solid #f3f3f3; border-radius: 50%;
+            border-top: 4px solid #4f46e5; width: 40px; height: 40px;
+            animation: spin 2s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-75 z-[100] flex flex-col items-center justify-center hidden">
+        <div class="loader"></div>
+        <p class="text-white text-lg mt-4">جاري تحميل النظام...</p>
+    </div>
+
+    <!-- Login View -->
+    <div id="login-view" class="flex items-center justify-center min-h-screen bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center text-gray-700">تسجيل دخول المدير</h2>
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="email-input" class="text-sm font-bold text-gray-600 block">البريد الإلكتروني</label>
+                    <input type="email" id="email-input" required class="w-full p-2 mt-1 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="password-input" class="text-sm font-bold text-gray-600 block">كلمة المرور</label>
+                    <input type="password" id="password-input" required class="w-full p-2 mt-1 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        دخول
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App View -->
+    <div id="main-app-view" class="flex h-screen bg-gray-100 hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 text-white flex flex-col">
+            <div class="h-20 flex items-center justify-center text-2xl font-bold border-b border-gray-700">
+                لوحة التحكم
+            </div>
+            <nav class="flex-1 px-2 py-4 space-y-2">
+                <a href="#dashboard" class="sidebar-link active flex items-center px-4 py-2 rounded-md" data-section="dashboard-section">
+                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span>لوحة التحكم</span>
+                </a>
+                <a href="#employees" class="sidebar-link flex items-center px-4 py-2 rounded-md" data-section="employees-section">
+                     <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A10.004 10.004 0 003 21m12 0v-1a6 6 0 00-9-5.197"></path></svg>
+                    <span>الموظفون</span>
+                </a>
+                <a href="#clients" class="sidebar-link flex items-center px-4 py-2 rounded-md" data-section="clients-section">
+                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <span>العملاء والمشاريع</span>
+                </a>
+                <a href="#reports" class="sidebar-link flex items-center px-4 py-2 rounded-md" data-section="reports-section">
+                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>التقارير</span>
+                </a>
+                <a href="#users" class="sidebar-link flex items-center px-4 py-2 rounded-md" data-section="users-section">
+                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span>إدارة المستخدمين</span>
+                </a>
+            </nav>
+            <div class="mt-auto p-4 border-t border-gray-700">
+                 <button id="logout-btn" class="w-full flex items-center justify-center px-4 py-2 rounded-md bg-red-600 hover:bg-red-700">
+                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>تسجيل الخروج</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 overflow-auto">
+            
+            <!-- Dashboard Section -->
+            <section id="dashboard-section">
+                 <h1 class="text-3xl font-bold text-gray-800 mb-6">لوحة التحكم الرئيسية</h1>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center">
+                        <div class="bg-blue-100 p-4 rounded-full ml-4">
+                             <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A10.004 10.004 0 003 21m12 0v-1a6 6 0 00-9-5.197"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-gray-500 text-lg font-bold">إجمالي الموظفين</h3>
+                            <p id="total-employees" class="text-4xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center">
+                        <div class="bg-green-100 p-4 rounded-full ml-4">
+                             <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-gray-500 text-lg font-bold">إجمالي العملاء</h3>
+                            <p id="total-clients" class="text-4xl font-bold">0</p>
+                        </div>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md flex items-center">
+                         <div class="bg-yellow-100 p-4 rounded-full ml-4">
+                             <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12.586a1 1 0 00.707-.293l2.414-2.414a1 1 0 00.293-.707V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4z"></path></svg>
+                         </div>
+                        <div>
+                            <h3 class="text-gray-500 text-lg font-bold">إجمالي المشاريع</h3>
+                            <p id="total-projects" class="text-4xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Employees Section -->
+            <section id="employees-section" class="hidden">
+                 <h1 class="text-3xl font-bold text-gray-800 mb-6">إدارة الموظفين</h1>
+                 <div class="bg-white p-6 rounded-lg shadow-md">
+                     <div class="flex items-center mb-4">
+                         <input type="text" id="new-employee-name" placeholder="أضف موظفًا جديدًا..." class="flex-grow p-2 border border-gray-300 rounded-md">
+                         <button id="add-employee-btn" class="bg-blue-600 text-white px-6 py-2 rounded-md mr-4 hover:bg-blue-700">إضافة</button>
+                     </div>
+                     <div class="overflow-auto max-h-[60vh]">
+                        <table class="w-full text-sm text-right">
+                            <thead class="bg-gray-100 sticky top-0">
+                                <tr>
+                                    <th class="p-3">اسم الموظف</th>
+                                    <th class="p-3 text-center">حالة بصمة الوجه</th>
+                                    <th class="p-3 text-center">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employees-table-body"></tbody>
+                        </table>
+                     </div>
+                 </div>
+            </section>
+            
+            <!-- Clients and Projects Section -->
+            <section id="clients-section" class="hidden">
+                <h1 class="text-3xl font-bold text-gray-800 mb-6">إدارة العملاء والمشاريع</h1>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4">العملاء</h2>
+                         <div class="space-y-4 mb-4">
+                            <input type="text" id="client-name-input" placeholder="اسم العميل الجديد" class="w-full p-2 border rounded-md">
+                            <input type="email" id="client-email-input" placeholder="البريد الإلكتروني" class="w-full p-2 border rounded-md">
+                        </div>
+                        <button id="add-client-btn" class="w-full bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700">إضافة عميل</button>
+                        <hr class="my-6">
+                        <div id="clients-table-container" class="max-h-64 overflow-auto">
+                            <table class="w-full text-sm text-right">
+                                <thead class="bg-gray-100 sticky top-0"><tr><th class="p-2">اسم العميل</th><th class="p-2">البريد الإلكتروني</th><th class="p-2">إجراء</th></tr></thead>
+                                <tbody id="clients-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4">المشاريع</h2>
+                        <div class="space-y-4 mb-4">
+                            <input type="text" id="project-name-input" placeholder="اسم المشروع الجديد" class="w-full p-2 border rounded-md">
+                            <select id="project-client-select" class="w-full p-2 border rounded-md"><option value="">-- اختر العميل --</option></select>
+                            <input type="number" id="project-rate-input" placeholder="سعر الساعة" class="w-full p-2 border rounded-md">
+                        </div>
+                        <button id="add-project-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">إضافة مشروع</button>
+                        <hr class="my-6">
+                        <div id="projects-table-container" class="max-h-64 overflow-auto">
+                            <table class="w-full text-sm text-right">
+                                <thead class="bg-gray-100 sticky top-0"><tr><th class="p-2">اسم المشروع</th><th class="p-2">العميل</th><th class="p-2">إجراء</th></tr></thead>
+                                <tbody id="projects-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Reports Section -->
+            <section id="reports-section" class="hidden">
+                 <h1 class="text-3xl font-bold text-gray-800 mb-6">التقارير والفواتير</h1>
+                 <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 items-end">
+                        <div>
+                            <label for="report-employee-select" class="block text-sm font-medium">اختر الموظف:</label>
+                            <select id="report-employee-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="report-month-select" class="block text-sm font-medium">اختر الشهر:</label>
+                            <select id="report-month-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="report-year-select" class="block text-sm font-medium">اختر السنة:</label>
+                            <select id="report-year-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                        </div>
+                         <button id="generate-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg w-full">إنشاء تقرير</button>
+                    </div>
+                    <hr class="my-6">
+                    <div id="report-output" class="space-y-4 max-h-[60vh] overflow-auto">
+                         <p class="text-center text-gray-500">الرجاء اختيار موظف وشهر لإنشاء التقرير.</p>
+                    </div>
+                 </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="users-section" class="hidden">
+                <h1 class="text-3xl font-bold text-gray-800 mb-6">إدارة المستخدمين (المدراء)</h1>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Add New User -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4">إضافة مدير جديد</h2>
+                        <form id="add-user-form" class="space-y-4">
+                            <div>
+                                <label for="new-user-name" class="block text-sm font-medium">الاسم</label>
+                                <input type="text" id="new-user-name" required class="w-full p-2 mt-1 border rounded-md">
+                            </div>
+                            <div>
+                                <label for="new-user-email" class="block text-sm font-medium">البريد الإلكتروني</label>
+                                <input type="email" id="new-user-email" required class="w-full p-2 mt-1 border rounded-md">
+                            </div>
+                            <div>
+                                <label for="new-user-password" class="block text-sm font-medium">كلمة المرور</label>
+                                <input type="password" id="new-user-password" required class="w-full p-2 mt-1 border rounded-md">
+                            </div>
+                            <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">إضافة مستخدم</button>
+                        </form>
+                    </div>
+                    <!-- Change My Password -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h2 class="text-xl font-bold mb-4">تغيير كلمة المرور الخاصة بي</h2>
+                        <form id="change-password-form" class="space-y-4">
+                            <div>
+                                <label for="update-password" class="block text-sm font-medium">كلمة المرور الجديدة</label>
+                                <input type="password" id="update-password" required class="w-full p-2 mt-1 border rounded-md">
+                            </div>
+                             <div>
+                                <label for="confirm-password" class="block text-sm font-medium">تأكيد كلمة المرور</label>
+                                <input type="password" id="confirm-password" required class="w-full p-2 mt-1 border rounded-md">
+                            </div>
+                            <button type="submit" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">تحديث كلمة المرور</button>
+                        </form>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-md mt-6">
+                     <h2 class="text-xl font-bold mb-4">قائمة المدراء</h2>
+                     <div class="overflow-auto max-h-[40vh]">
+                        <table class="w-full text-sm text-right">
+                            <thead class="bg-gray-100 sticky top-0"><tr><th class="p-3">الاسم</th><th class="p-3">البريد الإلكتروني</th><th class="p-3 text-center">إجراء</th></tr></thead>
+                            <tbody id="users-table-body"></tbody>
+                        </table>
+                     </div>
+                 </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Modals -->
+    <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div id="alert-modal-content" class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md transform scale-95 opacity-0"></div>
+    </div>
+    <div id="face-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+            <h3 id="face-modal-title" class="text-lg font-bold mb-4"></h3>
+            <div class="bg-gray-200 w-full aspect-square rounded-md mb-4">
+                <video id="video" width="300" height="300" autoplay muted playsinline></video>
+            </div>
+            <p id="status-message" class="mb-4 h-6">الرجاء توجيه الوجه للكاميرا...</p>
+            <div class="flex gap-4">
+                <button id="cancel-face-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 transition">إلغاء</button>
+                <button id="action-face-btn" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition disabled:bg-gray-400" disabled>تسجيل</button>
+            </div>
+        </div>
+    </div>
+    <div id="pin-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+            <h3 id="pin-modal-title" class="text-lg font-bold mb-4">تعيين رمز PIN</h3>
+            <p id="pin-employee-name" class="mb-4 text-gray-600"></p>
+            <input type="password" id="pin-input" maxlength="4" class="w-full text-center text-2xl p-2 border rounded-md tracking-[1em]" placeholder="----">
+            <div class="flex gap-4 mt-4">
+                <button id="cancel-pin-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">إلغاء</button>
+                <button id="save-pin-btn" class="w-full bg-indigo-600 text-white py-2 rounded-lg">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Global State ---
+            const API_URL = 'https://evolution-mec2.onrender.com/api'; // Use your deployed server URL
+            let faceApiLoaded = false;
+            let currentStream = null;
+            let faceDetectionInterval = null;
+
+            // --- UI Elements ---
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loginView = document.getElementById('login-view');
+            const mainAppView = document.getElementById('main-app-view');
+            const loginForm = document.getElementById('login-form');
+            const emailInput = document.getElementById('email-input');
+            const passwordInput = document.getElementById('password-input');
+            const logoutBtn = document.getElementById('logout-btn');
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            const contentSections = document.querySelectorAll('main section');
+            const alertModal = document.getElementById('alert-modal');
+            const alertModalContent = document.getElementById('alert-modal-content');
+            const faceModal = document.getElementById('face-modal');
+            const faceModalTitle = document.getElementById('face-modal-title');
+            const video = document.getElementById('video');
+            const statusMessage = document.getElementById('status-message');
+            const actionFaceBtn = document.getElementById('action-face-btn');
+            const cancelFaceBtn = document.getElementById('cancel-face-btn');
+            const pinModal = document.getElementById('pin-modal');
+            const savePinBtn = document.getElementById('save-pin-btn');
+            const cancelPinBtn = document.getElementById('cancel-pin-btn');
+            
+            // --- API Communication Layer ---
+            const api = {
+                async request(endpoint, method = 'GET', body = null) {
+                    const token = localStorage.getItem('authToken');
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    try {
+                        const response = await fetch(`${API_URL}/${endpoint}`, {
+                            method,
+                            headers,
+                            body: body ? JSON.stringify(body) : null,
+                        });
+
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            if (response.status === 401) handleLogout();
+                            throw new Error(data.message || `خطأ في الخادم: ${response.statusText}`);
+                        }
+                        return data;
+                    } catch (error) {
+                        if (error.message.includes('Failed to fetch')) {
+                             showAlert('فشل الاتصال بالخادم. الرجاء التأكد من أن الخادم يعمل.');
+                        } else {
+                             showAlert(`حدث خطأ: ${error.message}`);
+                        }
+                        console.error(`${method} ${endpoint} failed:`, error);
+                        throw error;
+                    }
+                },
+                get(endpoint) { return this.request(endpoint); },
+                post(endpoint, body) { return this.request(endpoint, 'POST', body); },
+                put(endpoint, body) { return this.request(endpoint, 'PUT', body); },
+                delete(endpoint) { return this.request(endpoint, 'DELETE'); }
+            };
+
+            // --- Authentication ---
+            async function handleLogin(e) {
+                e.preventDefault();
+                const email = emailInput.value;
+                const password = passwordInput.value;
+                try {
+                    const data = await api.post('users/login', { email, password });
+                    localStorage.setItem('authToken', data.token);
+                    showMainApp();
+                } catch (error) {
+                    console.error('Login failed:', error);
+                }
+            }
+
+            function handleLogout() {
+                localStorage.removeItem('authToken');
+                showLoginView();
+            }
+            
+            async function verifyTokenAndStartup() {
+                loadingOverlay.classList.remove('hidden');
+                const token = localStorage.getItem('authToken');
+                if (token) {
+                    try {
+                        await api.get('users/profile'); 
+                        await showMainApp();
+                    } catch (error) {
+                        handleLogout();
+                    }
+                } else {
+                    showLoginView();
+                }
+            }
+            
+            // --- View Management ---
+            function showLoginView() {
+                loginView.classList.remove('hidden');
+                mainAppView.classList.add('hidden');
+                loadingOverlay.classList.add('hidden');
+            }
+
+            async function showMainApp() {
+                loginView.classList.add('hidden');
+                mainAppView.classList.remove('hidden');
+                handleNavigation({ preventDefault: () => {}, currentTarget: document.querySelector('[data-section="dashboard-section"]') });
+                loadFaceApiModelsInBackground();
+            }
+
+            function handleNavigation(e) {
+                e.preventDefault();
+                const sectionId = e.currentTarget.dataset.section;
+
+                sidebarLinks.forEach(link => link.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+
+                contentSections.forEach(section => {
+                    section.classList.toggle('hidden', section.id !== sectionId);
+                });
+                
+                if (sectionId === 'dashboard-section') loadDashboardData();
+                if (sectionId === 'employees-section') loadEmployeesData();
+                if (sectionId === 'clients-section') loadClientsAndProjectsData();
+                if (sectionId === 'reports-section') initReportsView();
+                if (sectionId === 'users-section') loadUsersData();
+            }
+
+            // --- Modals ---
+            function showAlert(message, isSuccess = false) {
+                 alertModalContent.innerHTML = `<p class="${isSuccess ? 'text-green-600' : 'text-red-600'}">${message}</p><div class="mt-4 flex justify-end"><button id="modal-ok-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md">موافق</button></div>`;
+                 document.getElementById('modal-ok-btn').onclick = hideAlert;
+                 alertModal.classList.remove('hidden');
+                 alertModal.classList.add('flex');
+                 setTimeout(() => alertModalContent.classList.remove('scale-95', 'opacity-0'), 10);
+            }
+            function hideAlert() {
+                alertModalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => alertModal.classList.add('hidden'), 300);
+            }
+
+            // --- Face API ---
+            async function loadFaceApiModelsInBackground() {
+                if(faceApiLoaded) return;
+                try {
+                    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                    ]);
+                    faceApiLoaded = true;
+                    console.log("Face API models loaded successfully.");
+                } catch (error) {
+                    console.error("Error loading face-api models:", error);
+                }
+            }
+            
+            function showFaceModal(employeeName, employeeId) {
+                if (!faceApiLoaded) {
+                    return showAlert("نماذج التعرف على الوجه لم تحمل بعد. الرجاء الانتظار قليلاً.");
+                }
+                faceModalTitle.textContent = `تسجيل بصمة الوجه لـ: ${employeeName}`;
+                actionFaceBtn.dataset.employeeId = employeeId;
+                faceModal.classList.remove('hidden');
+                faceModal.classList.add('flex');
+                startVideo();
+            }
+            
+             function hideFaceModal() {
+                stopVideo();
+                faceModal.classList.add('hidden');
+            }
+
+            async function startVideo() {
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                    video.srcObject = currentStream;
+                    video.addEventListener('play', runFaceDetection);
+                } catch (err) {
+                    showAlert("لا يمكن الوصول إلى الكاميرا. يرجى منح الإذن اللازم.");
+                    hideFaceModal();
+                }
+            }
+            
+            function stopVideo() {
+                if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+                if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                statusMessage.textContent = "الرجاء توجيه الوجه للكاميرا...";
+                actionFaceBtn.disabled = true;
+            }
+            
+            function runFaceDetection() {
+                 faceDetectionInterval = setInterval(async () => {
+                    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+                    if (detections) {
+                        statusMessage.textContent = "تم اكتشاف الوجه. جاهز للتسجيل.";
+                        actionFaceBtn.disabled = false;
+                    } else {
+                        statusMessage.textContent = "الرجاء توجيه وجه واحد للكاميرا.";
+                        actionFaceBtn.disabled = true;
+                    }
+                }, 500);
+            }
+
+            async function handleFaceRegistration() {
+                 statusMessage.textContent = "جاري معالجة الصورة...";
+                 actionFaceBtn.disabled = true;
+                 
+                 const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+
+                 if (!detection) {
+                     showAlert("لم يتمكن من اكتشاف الوجه بوضوح. حاول مرة أخرى.");
+                     stopVideo(); startVideo();
+                     return;
+                 }
+                 
+                 const employeeId = actionFaceBtn.dataset.employeeId;
+                 const descriptor = Array.from(detection.descriptor);
+
+                 try {
+                     await api.post(`employees/face`, { employeeId, descriptor });
+                     showAlert("تم تسجيل بصمة الوجه بنجاح!", true);
+                     hideFaceModal();
+                     loadEmployeesData();
+                 } catch(error) {
+                     stopVideo(); startVideo();
+                 }
+            }
+
+            // --- PIN Management ---
+            function showPinModal(employeeId, employeeName) {
+                document.getElementById('pin-employee-name').textContent = `للموظف: ${employeeName}`;
+                savePinBtn.dataset.employeeId = employeeId;
+                pinModal.classList.remove('hidden');
+                pinModal.classList.add('flex');
+            }
+
+            function hidePinModal() {
+                document.getElementById('pin-input').value = '';
+                pinModal.classList.add('hidden');
+            }
+
+            async function handleSetPin() {
+                const pin = document.getElementById('pin-input').value;
+                if (!/^\d{4}$/.test(pin)) {
+                    return showAlert("الرجاء إدخال رمز PIN مكون من 4 أرقام.");
+                }
+                const employeeId = savePinBtn.dataset.employeeId;
+                try {
+                    await api.put(`employees/${employeeId}/set-pin`, { pin });
+                    showAlert("تم تعيين رمز PIN بنجاح!", true);
+                    hidePinModal();
+                } catch(error) {}
+            }
+
+            // --- Dashboard Logic ---
+            async function loadDashboardData() {
+                loadingOverlay.classList.remove('hidden');
+                 try {
+                    const [employees, clients, projects] = await Promise.all([
+                        api.get('employees'),
+                        api.get('clients'),
+                        api.get('projects')
+                    ]);
+                    document.getElementById('total-employees').textContent = employees.length;
+                    document.getElementById('total-clients').textContent = clients.length;
+                    document.getElementById('total-projects').textContent = projects.length;
+                } catch(error) { /* Errors are handled by the API layer */ }
+                loadingOverlay.classList.add('hidden');
+            }
+            
+            // --- Employee Logic ---
+            const newEmployeeNameInput = document.getElementById('new-employee-name');
+            const addEmployeeBtn = document.getElementById('add-employee-btn');
+            const employeesTableBody = document.getElementById('employees-table-body');
+            
+            async function loadEmployeesData() {
+                try {
+                    const employees = await api.get('employees');
+                    employeesTableBody.innerHTML = '';
+                    if (employees.length === 0) {
+                         employeesTableBody.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-gray-500">لا يوجد موظفون بعد.</td></tr>';
+                         return;
+                    }
+                    employees.forEach(emp => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b';
+                        row.innerHTML = `
+                            <td class="p-3 font-semibold">${emp.name}</td>
+                            <td class="p-3 text-center">${emp.hasFaceDescriptor ? '<span class="text-green-600 font-bold">مسجلة</span>' : '<span class="text-red-600 font-bold">غير مسجلة</span>'}</td>
+                            <td class="p-3 text-center space-x-2 space-x-reverse">
+                                <button class="text-indigo-600 hover:text-indigo-900 register-face-btn" title="تسجيل بصمة الوجه" data-id="${emp._id}" data-name="${emp.name}">
+                                    <svg class="w-6 h-6 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                </button>
+                                <button class="text-gray-600 hover:text-gray-900 set-pin-btn" title="تعيين رمز PIN" data-id="${emp._id}" data-name="${emp.name}">
+                                     <svg class="w-6 h-6 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                </button>
+                                <button class="text-red-600 hover:text-red-900 delete-employee-btn" title="حذف الموظف" data-id="${emp._id}" data-name="${emp.name}">
+                                    <svg class="w-6 h-6 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </td>
+                        `;
+                        employeesTableBody.appendChild(row);
+                    });
+                } catch(error) {}
+            }
+            
+            async function addEmployee() {
+                const name = newEmployeeNameInput.value.trim().toUpperCase();
+                if (!name) return showAlert("اسم الموظف مطلوب.");
+                try {
+                    await api.post('employees', { name });
+                    showAlert("تمت إضافة الموظف بنجاح", true);
+                    newEmployeeNameInput.value = '';
+                    loadEmployeesData();
+                } catch(error) {}
+            }
+            
+            async function deleteEmployee(id, name) {
+                 if(confirm(`هل أنت متأكد من حذف الموظف "${name}"؟ سيتم حذف جميع سجلاته.`)) {
+                    try {
+                        await api.delete(`employees/${id}`);
+                        showAlert("تم حذف الموظف بنجاح", true);
+                        loadEmployeesData();
+                    } catch(error) {}
+                 }
+            }
+            
+             employeesTableBody.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+
+                if (button.classList.contains('register-face-btn')) {
+                    showFaceModal(button.dataset.name, button.dataset.id);
+                } else if (button.classList.contains('delete-employee-btn')) {
+                    deleteEmployee(button.dataset.id, button.dataset.name);
+                } else if (button.classList.contains('set-pin-btn')) {
+                    showPinModal(button.dataset.id, button.dataset.name);
+                }
+            });
+
+            // --- User Management Logic ---
+            const addUserForm = document.getElementById('add-user-form');
+            const changePasswordForm = document.getElementById('change-password-form');
+            const usersTableBody = document.getElementById('users-table-body');
+
+            async function loadUsersData() {
+                 try {
+                    const users = await api.get('users');
+                    usersTableBody.innerHTML = '';
+                     if (users.length === 0) {
+                         usersTableBody.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-gray-500">لا يوجد مستخدمون.</td></tr>';
+                         return;
+                    }
+                    users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b';
+                        row.innerHTML = `
+                            <td class="p-3">${user.name}</td>
+                            <td class="p-3">${user.email}</td>
+                            <td class="p-3 text-center">
+                                <button class="text-red-600 hover:text-red-900 delete-user-btn" data-id="${user._id}" data-name="${user.name}">حذف</button>
+                            </td>
+                        `;
+                        usersTableBody.appendChild(row);
+                    });
+                 } catch(error) {}
+            }
+
+            async function handleAddUser(e) {
+                e.preventDefault();
+                const name = document.getElementById('new-user-name').value;
+                const email = document.getElementById('new-user-email').value;
+                const password = document.getElementById('new-user-password').value;
+                try {
+                    await api.post('users/register', { name, email, password });
+                    showAlert('تمت إضافة المستخدم بنجاح!', true);
+                    addUserForm.reset();
+                    loadUsersData();
+                } catch (error) {}
+            }
+
+            async function handleChangePassword(e) {
+                e.preventDefault();
+                const password = document.getElementById('update-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                if (password !== confirmPassword) {
+                    return showAlert('كلمتا المرور غير متطابقتين.');
+                }
+                try {
+                    await api.put('users/profile', { password });
+                    showAlert('تم تحديث كلمة المرور بنجاح!', true);
+                    changePasswordForm.reset();
+                } catch (error) {}
+            }
+
+            async function deleteUser(id, name) {
+                 if(confirm(`هل أنت متأكد من حذف المستخدم "${name}"؟`)) {
+                    try {
+                        await api.delete(`users/${id}`);
+                        showAlert("تم حذف المستخدم بنجاح", true);
+                        loadUsersData();
+                    } catch(error) {}
+                 }
+            }
+            
+            usersTableBody.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (button && button.classList.contains('delete-user-btn')) {
+                    deleteUser(button.dataset.id, button.dataset.name);
+                }
+            });
+
+            // --- Reports Logic ---
+            const reportEmployeeSelect = document.getElementById('report-employee-select');
+            const reportMonthSelect = document.getElementById('report-month-select');
+            const reportYearSelect = document.getElementById('report-year-select');
+            const generateReportBtn = document.getElementById('generate-report-btn');
+            const reportOutput = document.getElementById('report-output');
+
+            async function initReportsView() {
+                try {
+                    const employees = await api.get('employees');
+                    reportEmployeeSelect.innerHTML = '<option value="">-- اختر موظف --</option>';
+                    employees.forEach(emp => {
+                        reportEmployeeSelect.innerHTML += `<option value="${emp.name}">${emp.name}</option>`;
+                    });
+
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const currentMonth = now.getMonth();
+                    const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+                    reportMonthSelect.innerHTML = months.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+                    reportYearSelect.innerHTML = '';
+                    for (let y = currentYear; y >= currentYear - 5; y--) {
+                        reportYearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+                    }
+                } catch (error) {}
+            }
+
+            async function generateReport() {
+                const employeeName = reportEmployeeSelect.value;
+                const month = parseInt(reportMonthSelect.value);
+                const year = parseInt(reportYearSelect.value);
+
+                if (!employeeName) return showAlert('الرجاء اختيار موظف.');
+
+                const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+                const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+                
+                try {
+                    reportOutput.innerHTML = '<div class="loader"></div>';
+                    const records = await api.get(`timesheets?employeeName=${employeeName.toUpperCase()}&startDate=${startDate}&endDate=${endDate}`);
+                    displayReport(records);
+                } catch(error) {
+                    reportOutput.innerHTML = '<p class="text-center text-red-500">فشل في جلب التقرير.</p>';
+                }
+            }
+
+            function displayReport(records) {
+                if (records.length === 0) {
+                    reportOutput.innerHTML = '<p class="text-center text-gray-500">لا توجد سجلات لهذا الموظف في الفترة المحددة.</p>';
+                    return;
+                }
+                
+                let reportHTML = '';
+                records.forEach(record => {
+                    reportHTML += `
+                        <div class="p-4 border rounded-lg bg-gray-50">
+                            <h3 class="font-bold text-lg">${new Date(record.date).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+                            <div class="mt-2 space-y-2 text-sm">
+                                ${record.entries.map(entry => `
+                                    <div class="flex justify-between items-center border-b pb-1">
+                                        <span>${entry.type === 'check-in' ? 'دخول:' : 'خروج:'} <span class="font-semibold">${entry.time}</span></span>
+                                        ${entry.location && entry.location.lat ? `<a href="https://www.google.com/maps?q=${entry.location.lat},${entry.location.lon}" target="_blank" class="text-blue-500 hover:underline">عرض على الخريطة</a>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="mt-2 text-right font-bold">إجمالي الساعات: ${record.totalHours.toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+                
+                reportOutput.innerHTML = reportHTML;
+            }
+             
+            // Placeholder for other sections
+            async function loadClientsAndProjectsData() { /* ... */ }
+
+            // --- Initial Load ---
+            function startup() {
+                loginForm.addEventListener('submit', handleLogin);
+                logoutBtn.addEventListener('click', handleLogout);
+                sidebarLinks.forEach(link => link.addEventListener('click', handleNavigation));
+                addEmployeeBtn.addEventListener('click', addEmployee);
+                cancelFaceBtn.addEventListener('click', hideFaceModal);
+                actionFaceBtn.addEventListener('click', handleFaceRegistration);
+                addUserForm.addEventListener('submit', handleAddUser);
+                changePasswordForm.addEventListener('submit', handleChangePassword);
+                generateReportBtn.addEventListener('click', generateReport);
+                savePinBtn.addEventListener('click', handleSetPin);
+                cancelPinBtn.addEventListener('click', hidePinModal);
+
+                verifyTokenAndStartup();
+            }
+
+            startup();
+        });
+    </script>
+</body>
+</html>
+

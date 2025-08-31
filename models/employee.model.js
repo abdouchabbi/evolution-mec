@@ -4,9 +4,10 @@ const bcrypt = require('bcryptjs');
 const employeeSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true,
+        required: [true, 'اسم الموظف مطلوب'],
         unique: true,
         uppercase: true,
+        trim: true,
     },
     faceDescriptor: {
         type: [Number],
@@ -14,40 +15,30 @@ const employeeSchema = new mongoose.Schema({
     pin: {
         type: String,
     },
-}, {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
 });
 
-// Virtual property to check if face descriptor exists
-employeeSchema.virtual('hasFaceDescriptor').get(function() {
-    return this.faceDescriptor && this.faceDescriptor.length > 0;
-});
-
-// Virtual property to check if PIN exists
-employeeSchema.virtual('hasPin').get(function() {
-    return !!this.pin;
-});
-
-// Hash PIN before saving
-employeeSchema.pre('save', async function(next) {
+// تشفير رمز PIN تلقائيًا قبل الحفظ
+employeeSchema.pre('save', async function (next) {
     if (!this.isModified('pin')) {
         next();
     }
-    if(this.pin) {
+    if (this.pin) {
         const salt = await bcrypt.genSalt(10);
         this.pin = await bcrypt.hash(this.pin, salt);
     }
 });
 
-// Method to compare entered PIN with hashed PIN
-employeeSchema.methods.matchPin = async function(enteredPin) {
-    if(!this.pin) return false;
+// دالة لمقارنة رمز PIN المدخل بالرمز المشفر
+employeeSchema.methods.matchPin = async function (enteredPin) {
+    if (!this.pin) return false;
     return await bcrypt.compare(enteredPin, this.pin);
 };
-
 
 const Employee = mongoose.model('Employee', employeeSchema);
 
 module.exports = Employee;
+
