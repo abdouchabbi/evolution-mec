@@ -38,8 +38,8 @@
     <div id="face-recognition-view" class="flex items-center justify-center min-h-screen bg-gray-200 hidden">
          <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
             <h2 class="text-2xl font-bold text-gray-700">الرجاء النظر إلى الكاميرا</h2>
-             <div class="w-64 h-64 rounded-full overflow-hidden mx-auto bg-gray-300 my-4 border-4 border-white shadow-lg">
-                <video id="video-login" class="w-full h-full object-cover" autoplay muted playsinline></video>
+             <div class="bg-gray-200 w-full aspect-square rounded-md my-4 relative">
+                <video id="video-login" class="w-full h-full rounded-md" autoplay muted playsinline></video>
              </div>
              <p id="recognition-status" class="text-lg font-semibold text-gray-600 h-8">جاري البحث عن وجه...</p>
         </div>
@@ -113,8 +113,8 @@
     <div id="verification-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
             <h3 class="text-lg font-bold mb-4">التحقق من الهوية للتسجيل</h3>
-            <div class="w-64 h-64 rounded-full overflow-hidden mx-auto bg-gray-300 mb-4 border-4 border-white shadow-lg">
-                <video id="video-verify" class="w-full h-full object-cover" autoplay muted playsinline></video>
+            <div class="bg-gray-200 w-full aspect-square rounded-md mb-4">
+                <video id="video-verify" class="w-full h-full rounded-md" autoplay muted playsinline></video>
             </div>
             <p id="verification-status" class="mb-4 h-6">الرجاء توجيه الوجه للكاميرا...</p>
             <div class="flex gap-4">
@@ -306,11 +306,11 @@
                         const labeledFaceDescriptors = employeesWithFaces.map(emp =>
                             new faceapi.LabeledFaceDescriptors(emp.name, [new Float32Array(emp.faceDescriptor)])
                         );
-                        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6); // Increased tolerance
+                        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); // Stricter tolerance
                         videoElement.addEventListener('play', () => runFaceLogin(faceMatcher, employeesWithFaces));
                     } else if (mode === 'verify') {
                         const employeeData = JSON.parse(localStorage.getItem('loggedInEmployee'));
-                        const faceMatcher = new faceapi.FaceMatcher([new Float32Array(employeeData.faceDescriptor)]);
+                        const faceMatcher = new faceapi.FaceMatcher([new Float32Array(employeeData.faceDescriptor)], 0.5);
                         videoElement.addEventListener('play', () => runFaceVerification(faceMatcher));
                     }
                 } catch (err) {
