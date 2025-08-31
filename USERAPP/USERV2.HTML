@@ -306,7 +306,7 @@
                         const labeledFaceDescriptors = employeesWithFaces.map(emp =>
                             new faceapi.LabeledFaceDescriptors(emp.name, [new Float32Array(emp.faceDescriptor)])
                         );
-                        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); // Tolerance
+                        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6); // Increased tolerance
                         videoElement.addEventListener('play', () => runFaceLogin(faceMatcher, employeesWithFaces));
                     } else if (mode === 'verify') {
                         const employeeData = JSON.parse(localStorage.getItem('loggedInEmployee'));
@@ -326,6 +326,7 @@
             }
 
             function runFaceLogin(faceMatcher, employees) {
+                let noMatchCounter = 0;
                 faceRecognitionInterval = setInterval(async () => {
                     const detection = await faceapi.detectSingleFace(videoLogin, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
                     if (detection) {
@@ -337,10 +338,16 @@
                             showView('pin-view');
                             pinInputsContainer.querySelector('input').focus();
                         } else {
-                            recognitionStatus.textContent = "لم يتم التعرف عليك. حاول مرة أخرى.";
+                            noMatchCounter++;
+                            if (noMatchCounter > 5) {
+                                recognitionStatus.textContent = "لم يتم التعرف. حاول تحريك رأسك قليلاً.";
+                            } else {
+                                recognitionStatus.textContent = "لم يتم التعرف عليك. حاول مرة أخرى.";
+                            }
                         }
                     } else {
                          recognitionStatus.textContent = "جاري البحث عن وجه...";
+                         noMatchCounter = 0;
                     }
                 }, 1500);
             }
