@@ -39,7 +39,7 @@
          <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
             <h2 class="text-2xl font-bold text-gray-700">الرجاء النظر إلى الكاميرا</h2>
              <div class="bg-gray-200 w-full aspect-square rounded-md my-4 relative">
-                <video id="video" class="w-full h-full rounded-md" autoplay muted playsinline></video>
+                <video id="video-login" class="w-full h-full rounded-md" autoplay muted playsinline></video>
              </div>
              <p id="recognition-status" class="text-lg font-semibold text-gray-600 h-8">جاري البحث عن وجه...</p>
         </div>
@@ -52,10 +52,10 @@
             <p class="text-gray-600">الرجاء إدخال رمز PIN الخاص بك</p>
             <form id="pin-form">
                 <div id="pin-inputs" class="flex justify-center my-4">
-                    <input type="text" maxlength="1" class="pin-input">
-                    <input type="text" maxlength="1" class="pin-input">
-                    <input type="text" maxlength="1" class="pin-input">
-                    <input type="text" maxlength="1" class="pin-input">
+                    <input type="password" maxlength="1" class="pin-input">
+                    <input type="password" maxlength="1" class="pin-input">
+                    <input type="password" maxlength="1" class="pin-input">
+                    <input type="password" maxlength="1" class="pin-input">
                 </div>
                 <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
                     تحقق
@@ -107,8 +107,21 @@
     </div>
 
     <!-- Modals -->
-    <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-[60] p-4">
         <div id="alert-modal-content" class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md transform scale-95 opacity-0"></div>
+    </div>
+    <div id="verification-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+            <h3 class="text-lg font-bold mb-4">التحقق من الهوية للتسجيل</h3>
+            <div class="bg-gray-200 w-full aspect-square rounded-md mb-4">
+                <video id="video-verify" class="w-full h-full rounded-md" autoplay muted playsinline></video>
+            </div>
+            <p id="verification-status" class="mb-4 h-6">الرجاء توجيه الوجه للكاميرا...</p>
+            <div class="flex gap-4">
+                <button id="cancel-verification-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">إلغاء</button>
+                <button id="confirm-verification-btn" class="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400" disabled>تأكيد</button>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -135,13 +148,18 @@
             const recordEntryBtn = document.getElementById('record-entry-btn');
             const alertModal = document.getElementById('alert-modal');
             const alertModalContent = document.getElementById('alert-modal-content');
-            const video = document.getElementById('video');
+            const videoLogin = document.getElementById('video-login');
             const recognitionStatus = document.getElementById('recognition-status');
             const reportMonthSelect = document.getElementById('report-month-select');
             const reportYearSelect = document.getElementById('report-year-select');
             const viewReportBtn = document.getElementById('view-report-btn');
             const exportPdfBtn = document.getElementById('export-pdf-btn');
             const reportOutput = document.getElementById('report-output');
+            const verificationModal = document.getElementById('verification-modal');
+            const videoVerify = document.getElementById('video-verify');
+            const verificationStatus = document.getElementById('verification-status');
+            const confirmVerificationBtn = document.getElementById('confirm-verification-btn');
+            const cancelVerificationBtn = document.getElementById('cancel-verification-btn');
             
             // --- API Communication Layer ---
             const api = {
@@ -181,8 +199,9 @@
             function handleLogout() {
                 recognizedEmployee = null;
                 localStorage.removeItem('loggedInEmployee');
+                stopVideo();
                 showView('face-recognition-view');
-                startVideo();
+                startVideo(videoLogin, 'login');
             }
             
             function checkLoggedInState() {
@@ -192,7 +211,7 @@
                     showMainView();
                 } else {
                     showView('face-recognition-view');
-                    startVideo();
+                    startVideo(videoLogin, 'login');
                 }
             }
             
@@ -256,8 +275,7 @@
                     await Promise.all([
                         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
                     ]);
                     faceApiLoaded = true;
                     console.log("Face API models loaded successfully.");
@@ -269,28 +287,32 @@
                 }
             }
 
-            async function startVideo() {
+            async function startVideo(videoElement, mode) {
                 if (!faceApiLoaded) {
                     recognitionStatus.textContent = "جاري تهيئة الكاميرا...";
                     await loadFaceApiModelsInBackground();
                 }
                 
                 try {
-                    const employeesWithFaces = await api.get('employees/face-login-data');
-                    if (employeesWithFaces.length === 0) {
-                        recognitionStatus.textContent = "لا يوجد موظفون مسجلون بالوجه.";
-                        return;
-                    }
-                    
-                    const labeledFaceDescriptors = employeesWithFaces.map(emp =>
-                        new faceapi.LabeledFaceDescriptors(emp.name, [new Float32Array(emp.faceDescriptor)])
-                    );
-                    const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors);
-
                     currentStream = await navigator.mediaDevices.getUserMedia({ video: {} });
-                    video.srcObject = currentStream;
-                    video.addEventListener('play', () => runFaceRecognition(faceMatcher, employeesWithFaces));
+                    videoElement.srcObject = currentStream;
 
+                    if (mode === 'login') {
+                        const employeesWithFaces = await api.get('employees/face-login-data');
+                         if (employeesWithFaces.length === 0) {
+                            recognitionStatus.textContent = "لا يوجد موظفون مسجلون بالوجه.";
+                            return;
+                        }
+                        const labeledFaceDescriptors = employeesWithFaces.map(emp =>
+                            new faceapi.LabeledFaceDescriptors(emp.name, [new Float32Array(emp.faceDescriptor)])
+                        );
+                        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); // Tolerance
+                        videoElement.addEventListener('play', () => runFaceLogin(faceMatcher, employeesWithFaces));
+                    } else if (mode === 'verify') {
+                        const employeeData = JSON.parse(localStorage.getItem('loggedInEmployee'));
+                        const faceMatcher = new faceapi.FaceMatcher([new Float32Array(employeeData.faceDescriptor)]);
+                        videoElement.addEventListener('play', () => runFaceVerification(faceMatcher));
+                    }
                 } catch (err) {
                     showAlert("لا يمكن الوصول إلى الكاميرا. يرجى منح الإذن اللازم.");
                 }
@@ -299,12 +321,13 @@
             function stopVideo() {
                 if (faceRecognitionInterval) clearInterval(faceRecognitionInterval);
                 if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
+                videoLogin.srcObject = null;
+                videoVerify.srcObject = null;
             }
 
-            function runFaceRecognition(faceMatcher, employees) {
+            function runFaceLogin(faceMatcher, employees) {
                 faceRecognitionInterval = setInterval(async () => {
-                    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                    const detection = await faceapi.detectSingleFace(videoLogin, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
                     if (detection) {
                         const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
                         if (bestMatch.label !== 'unknown') {
@@ -312,6 +335,7 @@
                             recognizedEmployee = employees.find(e => e.name === bestMatch.label);
                             pinWelcomeName.textContent = recognizedEmployee.name;
                             showView('pin-view');
+                            pinInputsContainer.querySelector('input').focus();
                         } else {
                             recognitionStatus.textContent = "لم يتم التعرف عليك. حاول مرة أخرى.";
                         }
@@ -321,13 +345,55 @@
                 }, 1500);
             }
             
-            async function recordEntry() {
+            function runFaceVerification(faceMatcher) {
+                 faceRecognitionInterval = setInterval(async () => {
+                    const detection = await faceapi.detectSingleFace(videoVerify, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                    if (detection) {
+                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                        if (bestMatch.label !== 'unknown') {
+                            verificationStatus.textContent = "تم التعرف عليك. جاهز للتأكيد.";
+                            confirmVerificationBtn.disabled = false;
+                        } else {
+                            verificationStatus.textContent = "الوجه غير مطابق.";
+                            confirmVerificationBtn.disabled = true;
+                        }
+                    } else {
+                         verificationStatus.textContent = "لم يتم اكتشاف وجه.";
+                         confirmVerificationBtn.disabled = true;
+                    }
+                }, 1000);
+            }
+            
+            // --- Entry Recording ---
+            async function handleRecordEntryClick() {
+                if (!faceApiLoaded) return showAlert("نماذج الوجه لم تحمل بعد.");
+                verificationModal.classList.remove('hidden');
+                verificationModal.classList.add('flex');
+                startVideo(videoVerify, 'verify');
+            }
+
+            async function handleConfirmVerification() {
+                verificationStatus.textContent = "جاري معالجة الصورة...";
+                confirmVerificationBtn.disabled = true;
+
+                const detection = await faceapi.detectSingleFace(videoVerify, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                
+                if (!detection) {
+                    showAlert("لم يتمكن من اكتشاف الوجه بوضوح. حاول مرة أخرى.");
+                    stopVideo(); startVideo(videoVerify, 'verify');
+                    return;
+                }
+                
+                const faceDescriptor = Array.from(detection.descriptor);
+                stopVideo();
+                verificationModal.classList.add('hidden');
+                recordEntryWithLocation(faceDescriptor);
+            }
+
+            function recordEntryWithLocation(faceDescriptor) {
                 showAlert("جاري تحديد الموقع...");
                 navigator.geolocation.getCurrentPosition(async (position) => {
-                    const location = {
-                        lat: position.coords.latitude,
-                        lon: position.coords.longitude
-                    };
+                    const location = { lat: position.coords.latitude, lon: position.coords.longitude };
                     const now = new Date();
                     const date = now.toISOString().split('T')[0];
                     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -335,7 +401,7 @@
                     try {
                          await api.post('timesheets/entry', { 
                             employeeName: recognizedEmployee.name, 
-                            date, time, location
+                            date, time, location, faceDescriptor 
                         });
                         showAlert("تم التسجيل بنجاح!", true);
                     } catch(error) {}
@@ -442,10 +508,15 @@
                 loadingOverlay.classList.add('hidden');
                 
                 logoutBtn.addEventListener('click', handleLogout);
-                recordEntryBtn.addEventListener('click', recordEntry);
+                recordEntryBtn.addEventListener('click', handleRecordEntryClick);
                 pinForm.addEventListener('submit', handlePinVerification);
                 viewReportBtn.addEventListener('click', viewMonthlyReport);
                 exportPdfBtn.addEventListener('click', exportReportAsPDF);
+                cancelVerificationBtn.addEventListener('click', () => {
+                    stopVideo();
+                    verificationModal.classList.add('hidden');
+                });
+                confirmVerificationBtn.addEventListener('click', handleConfirmVerification);
                 
                 setupPinInputs();
                 checkLoggedInState();
