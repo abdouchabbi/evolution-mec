@@ -1,11 +1,11 @@
 const asyncHandler = require('express-async-handler');
-const mongoose = require('mongoose');
 const Employee = require('../models/employee.model.js');
 const Timesheet = require('../models/timesheet.model.js');
+const { faceApiForNode } = require('../faceApi');
 
-// @desc    تسجيل موظف جديد
+// @desc    إنشاء موظف جديد
 // @route   POST /api/employees
-// @access  Private (Admin)
+// @access  Private
 const createEmployee = asyncHandler(async (req, res) => {
     const { name } = req.body;
     const employeeExists = await Employee.findOne({ name: name.toUpperCase() });
@@ -19,7 +19,7 @@ const createEmployee = asyncHandler(async (req, res) => {
     res.status(201).json(employee);
 });
 
-// @desc    تسجيل دخول الموظف والتحقق من وجوده
+// @desc    تسجيل دخول الموظف وجلب بياناته
 // @route   POST /api/employees/login
 // @access  Public
 const loginEmployee = asyncHandler(async (req, res) => {
@@ -29,8 +29,7 @@ const loginEmployee = asyncHandler(async (req, res) => {
         throw new Error('اسم الموظف مطلوب');
     }
 
-    // البحث عن الموظف (غير حساس لحالة الأحرف)
-    const employee = await Employee.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+    const employee = await Employee.findOne({ name: name.toUpperCase() });
 
     if (employee) {
         res.json({
@@ -46,48 +45,41 @@ const loginEmployee = asyncHandler(async (req, res) => {
 });
 
 
-// @desc    جلب جميع الموظفين (للمدير)
+// @desc    جلب كل الموظفين
 // @route   GET /api/employees
-// @access  Private (Admin)
+// @access  Private
 const getEmployees = asyncHandler(async (req, res) => {
-    // Check if a specific employee is requested by name (for employee app login)
-    if (req.query.name) {
-        const employee = await Employee.findOne({ name: req.query.name.toUpperCase() });
-        if (employee) {
-            res.json([employee]); // Return as an array to match frontend expectation
-        } else {
-            res.json([]);
-        }
-    } else {
-        // Otherwise, return all employees for the admin panel
-        const employees = await Employee.find({});
-        res.json(employees);
-    }
+    const employees = await Employee.find({});
+    res.json(employees.map(e => ({
+        _id: e._id,
+        name: e.name,
+        hasFaceDescriptor: !!e.faceDescriptor && e.faceDescriptor.length > 0
+    })));
 });
+
 
 // @desc    تسجيل بصمة الوجه لموظف
 // @route   POST /api/employees/face
-// @access  Private (Admin)
+// @access  Private
 const registerFace = asyncHandler(async (req, res) => {
     const { employeeId, descriptor } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
-        res.status(400);
-        throw new Error('معرف الموظف غير صالح');
+    // 1. التحقق من تفرد بصمة الوجه
+    const employees = await Employee.find({});
+    for (const emp of employees) {
+        if (emp.faceDescriptor && emp.faceDescriptor.length > 0 && emp._id.toString() !== employeeId) {
+            const distance = faceApiForNode.euclideanDistance(new Float32Array(descriptor), new Float32Array(emp.faceDescriptor));
+            if (distance < 0.6) { // 0.6 is a common threshold
+                res.status(400);
+                throw new Error(`هذا الوجه مسجل بالفعل للموظف: ${emp.name}`);
+            }
+        }
     }
     
-    // التحقق من أن هذه البصمة غير مسجلة لموظف آخر
-    const existingEmployeeWithFace = await Employee.findOne({ faceDescriptor: descriptor });
-    if (existingEmployeeWithFace && existingEmployeeWithFace._id.toString() !== employeeId) {
-        res.status(400);
-        throw new Error('هذا الوجه مسجل بالفعل لموظف آخر.');
-    }
-
+    // 2. تحديث بصمة الوجه
     const employee = await Employee.findById(employeeId);
-
     if (employee) {
         employee.faceDescriptor = descriptor;
-        employee.hasFaceDescriptor = true;
         await employee.save();
         res.json({ message: 'تم تسجيل بصمة الوجه بنجاح' });
     } else {
@@ -96,22 +88,17 @@ const registerFace = asyncHandler(async (req, res) => {
     }
 });
 
+
 // @desc    حذف موظف
 // @route   DELETE /api/employees/:id
-// @access  Private (Admin)
+// @access  Private
 const deleteEmployee = asyncHandler(async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        res.status(400);
-        throw new Error('معرف الموظف غير صالح');
-    }
-
     const employee = await Employee.findById(req.params.id);
-
     if (employee) {
-        // حذف جميع سجلات الدوام المرتبطة به أيضًا
-        await Timesheet.deleteMany({ employeeName: employee.name });
         await employee.deleteOne();
-        res.json({ message: 'تم حذف الموظف وجميع سجلاته بنجاح' });
+        // اختياري: حذف سجلات الدوام المرتبطة به
+        await Timesheet.deleteMany({ employeeName: employee.name });
+        res.json({ message: 'تم حذف الموظف بنجاح' });
     } else {
         res.status(404);
         throw new Error('الموظف غير موجود');
@@ -124,5 +111,6 @@ module.exports = {
     loginEmployee,
     getEmployees,
     registerFace,
-    deleteEmployee,
+    deleteEmployee
 };
+

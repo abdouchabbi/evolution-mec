@@ -2,14 +2,12 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>تسجيل دوام الموظف</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق الموظف</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
@@ -18,34 +16,33 @@
         .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
         .loader {
             border: 4px solid #f3f3f3; border-radius: 50%;
-            border-top: 4px solid #3b82f6; width: 40px; height: 40px;
+            border-top: 4px solid #4f46e5; width: 40px; height: 40px;
             animation: spin 2s linear infinite; margin: 20px auto;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #map { height: 150px; border-radius: 0.5rem; }
     </style>
 </head>
 <body class="bg-gray-100">
 
     <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-75 z-[100] flex flex-col items-center justify-center">
         <div class="loader"></div>
-        <p class="text-white text-lg mt-4">جاري تحميل التطبيق...</p>
+        <p class="text-white text-lg mt-4">جاري تحميل النظام...</p>
     </div>
 
     <!-- Login View -->
-    <div id="login-view" class="flex items-center justify-center min-h-screen p-4">
-        <div class="w-full max-w-sm p-8 space-y-6 bg-white rounded-lg shadow-md">
+    <div id="login-view" class="flex items-center justify-center min-h-screen bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
             <div class="text-center">
-                <img src="https://placehold.co/200x60/007BFF/FFFFFF?text=Logo" alt="Logo" class="mx-auto h-12 mb-4">
-                <h2 class="text-2xl font-bold text-gray-700">تسجيل دخول الموظف</h2>
+                 <img src="https://placehold.co/200x60/4f46e5/FFFFFF?text=Logo" alt="Logo" class="h-12 mx-auto mb-4" crossorigin="anonymous">
+                 <h2 class="text-2xl font-bold text-gray-700">تسجيل دخول الموظف</h2>
             </div>
-            <form id="login-form" class="space-y-4">
+            <form id="login-form" class="space-y-6">
                 <div>
                     <label for="employee-name-input" class="text-sm font-bold text-gray-600 block">اسم الموظف</label>
-                    <input type="text" id="employee-name-input" required class="w-full p-2 mt-1 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    <input type="text" id="employee-name-input" required class="w-full p-2 mt-1 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500" placeholder="اكتب اسمك الكامل هنا">
                 </div>
                 <div>
-                    <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         دخول
                     </button>
                 </div>
@@ -54,50 +51,49 @@
     </div>
 
     <!-- Main App View -->
-    <div id="main-app-view" class="hidden p-4 max-w-4xl mx-auto">
+    <div id="main-app-view" class="hidden container mx-auto p-4 max-w-4xl">
         <header class="flex justify-between items-center mb-6">
             <div>
-                <h1 class="text-2xl font-bold">مرحباً، <span id="welcome-name"></span></h1>
+                <h1 class="text-2xl font-bold text-gray-800">مرحبا، <span id="welcome-name"></span>!</h1>
                 <p class="text-gray-500">جاهز لبدء يومك؟</p>
             </div>
-            <button id="logout-btn" class="text-sm text-red-500 font-bold hover:underline">تسجيل الخروج</button>
+            <button id="logout-btn" class="text-sm text-red-600 hover:underline">تسجيل الخروج</button>
         </header>
 
-        <main>
-            <div class="bg-white p-6 rounded-lg shadow-md text-center mb-6">
-                <h2 class="text-xl font-bold mb-2">تسجيل الحضور / الانصراف</h2>
-                <p class="text-gray-500 mb-4">اضغط على الزر أدناه لتسجيل حركتك بالوجه والموقع.</p>
-                <button id="record-entry-btn" class="w-full md:w-1/2 mx-auto px-6 py-4 text-xl font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 shadow-lg transform hover:scale-105 transition-transform">
-                    تسجيل الآن
-                </button>
-            </div>
-
+        <main class="bg-white p-6 rounded-lg shadow-md text-center">
+            <h2 class="text-xl font-semibold mb-2">تسجيل الحضور والانصراف</h2>
+            <p id="current-date" class="text-gray-500 mb-6"></p>
+            <button id="record-entry-btn" class="bg-green-500 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:bg-green-600 transition text-lg">
+                تسجيل الآن
+            </button>
+        </main>
+        
+        <footer class="mt-8">
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4">سجلاتي الشهرية</h2>
-                 <div class="flex flex-col sm:flex-row gap-4 mb-4 items-end">
-                    <div class="w-full">
+                <h2 class="text-xl font-semibold mb-4">سجلاتي الشهرية</h2>
+                <div class="flex items-end gap-4 mb-4">
+                    <div class="flex-grow">
                         <label for="report-month-select" class="block text-sm font-medium">اختر الشهر:</label>
                         <select id="report-month-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
                     </div>
-                    <div class="w-full">
+                    <div class="flex-grow">
                         <label for="report-year-select" class="block text-sm font-medium">اختر السنة:</label>
                         <select id="report-year-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
                     </div>
-                    <button id="view-report-btn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg whitespace-nowrap">عرض السجل</button>
-                 </div>
-                 <div id="report-output" class="space-y-4 max-h-[50vh] overflow-auto p-2 border rounded-md bg-gray-50">
-                    <p class="text-center text-gray-500">الرجاء اختيار شهر لعرض السجل.</p>
-                 </div>
-                 <div class="text-center mt-4">
-                     <button id="export-pdf-btn" class="bg-red-600 text-white px-6 py-2 rounded-lg shadow hover:bg-red-700 disabled:bg-gray-400" disabled>تصدير PDF</button>
-                 </div>
+                    <button id="view-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg">عرض</button>
+                    <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg hidden">تصدير PDF</button>
+                </div>
+                <div id="report-output" class="space-y-4 max-h-[50vh] overflow-auto border-t pt-4">
+                    <p class="text-center text-gray-500">الرجاء اختيار شهر لعرض التقرير.</p>
+                </div>
             </div>
-        </main>
+        </footer>
+
     </div>
-    
+
     <!-- Modals -->
     <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-50 p-4">
-        <div class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md transform scale-95 opacity-0"></div>
+        <div id="alert-modal-content" class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md transform scale-95 opacity-0"></div>
     </div>
     <div id="face-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
         <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
@@ -112,7 +108,7 @@
             </div>
         </div>
     </div>
-
+    
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- Global State ---
@@ -120,8 +116,7 @@
             let faceApiLoaded = false;
             let currentStream = null;
             let faceDetectionInterval = null;
-            let currentEmployee = null;
-            let currentMonthlyReport = [];
+            let currentReportData = [];
 
             // --- UI Elements ---
             const loadingOverlay = document.getElementById('loading-overlay');
@@ -131,12 +126,8 @@
             const employeeNameInput = document.getElementById('employee-name-input');
             const logoutBtn = document.getElementById('logout-btn');
             const welcomeName = document.getElementById('welcome-name');
+            const currentDateEl = document.getElementById('current-date');
             const recordEntryBtn = document.getElementById('record-entry-btn');
-            const reportOutput = document.getElementById('report-output');
-            const viewReportBtn = document.getElementById('view-report-btn');
-            const exportPdfBtn = document.getElementById('export-pdf-btn');
-            
-            // Modals
             const alertModal = document.getElementById('alert-modal');
             const alertModalContent = document.getElementById('alert-modal-content');
             const faceModal = document.getElementById('face-modal');
@@ -144,7 +135,12 @@
             const statusMessage = document.getElementById('status-message');
             const actionFaceBtn = document.getElementById('action-face-btn');
             const cancelFaceBtn = document.getElementById('cancel-face-btn');
-
+            const reportMonthSelect = document.getElementById('report-month-select');
+            const reportYearSelect = document.getElementById('report-year-select');
+            const viewReportBtn = document.getElementById('view-report-btn');
+            const exportPdfBtn = document.getElementById('export-pdf-btn');
+            const reportOutput = document.getElementById('report-output');
+            
             // --- API Communication Layer ---
             const api = {
                 async request(endpoint, method = 'GET', body = null) {
@@ -180,28 +176,19 @@
                 if (!name) return showAlert("الرجاء إدخال اسمك.");
 
                 try {
-                    const employees = await api.get(`employees?name=${name}`);
-                    if (employees.length === 0) {
-                        return showAlert("اسم الموظف غير موجود. الرجاء التواصل مع المدير.");
-                    }
-                    
-                    const employee = employees[0];
-                    if (!employee.hasFaceDescriptor) {
+                    const employeeData = await api.post('employees/login', { name });
+                    if (!employeeData.hasFaceDescriptor) {
                         return showAlert("لم تقم بتسجيل بصمة وجهك بعد. يرجى التواصل مع المدير.");
                     }
-                    
-                    currentEmployee = employee;
-                    localStorage.setItem('currentEmployee', JSON.stringify(employee));
-                    showMainApp();
-
+                    localStorage.setItem('employeeData', JSON.stringify(employeeData));
+                    showMainView();
                 } catch (error) {
                     console.error('Login failed:', error);
                 }
             }
-            
+
             function handleLogout() {
-                currentEmployee = null;
-                localStorage.removeItem('currentEmployee');
+                localStorage.removeItem('employeeData');
                 showLoginView();
             }
 
@@ -212,14 +199,17 @@
                 loadingOverlay.style.display = 'none';
             }
 
-            function showMainApp() {
+            function showMainView() {
+                const employeeData = JSON.parse(localStorage.getItem('employeeData'));
+                if (!employeeData) return showLoginView();
+
                 loginView.classList.add('hidden');
                 mainAppView.classList.remove('hidden');
-                welcomeName.textContent = currentEmployee.name;
-                initReportSelectors();
-                loadFaceApiModels(); // Load in background
+                welcomeName.textContent = employeeData.name;
+                currentDateEl.textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                initReportsView();
             }
-            
+
             // --- Modals ---
             function showAlert(message, isSuccess = false) {
                  alertModalContent.innerHTML = `<p class="${isSuccess ? 'text-green-600' : 'text-red-600'}">${message}</p><div class="mt-4 flex justify-end"><button id="modal-ok-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md">موافق</button></div>`;
@@ -228,14 +218,14 @@
                  alertModal.classList.add('flex');
                  setTimeout(() => alertModalContent.classList.remove('scale-95', 'opacity-0'), 10);
             }
-            function hideAlert() {
+             function hideAlert() {
                 alertModalContent.classList.add('scale-95', 'opacity-0');
                 setTimeout(() => alertModal.classList.add('hidden'), 300);
             }
 
             // --- Face API ---
             async function loadFaceApiModels() {
-                if (faceApiLoaded) return;
+                if(faceApiLoaded) return;
                 try {
                     const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
                     await Promise.all([
@@ -252,11 +242,8 @@
 
             function showFaceModal() {
                  if (!faceApiLoaded) {
-                    loadingOverlay.style.display = 'flex';
-                    loadingOverlay.querySelector('p').textContent = 'جاري تحضير الكاميرا...';
-                    return setTimeout(showFaceModal, 1000);
+                    return showAlert("نماذج التعرف على الوجه لم تحمل بعد. الرجاء الانتظار قليلاً.");
                 }
-                loadingOverlay.style.display = 'none';
                 faceModal.classList.remove('hidden');
                 faceModal.classList.add('flex');
                 startVideo();
@@ -269,15 +256,16 @@
 
             async function startVideo() {
                 try {
+                    const employeeData = JSON.parse(localStorage.getItem('employeeData'));
                     currentStream = await navigator.mediaDevices.getUserMedia({ video: {} });
                     video.srcObject = currentStream;
-                    video.addEventListener('play', runFaceRecognition);
+                    video.addEventListener('play', () => runFaceRecognition(employeeData.faceDescriptor));
                 } catch (err) {
                     showAlert("لا يمكن الوصول إلى الكاميرا. يرجى منح الإذن اللازم.");
                     hideFaceModal();
                 }
             }
-
+            
             function stopVideo() {
                 if (faceDetectionInterval) clearInterval(faceDetectionInterval);
                 if (currentStream) currentStream.getTracks().forEach(track => track.stop());
@@ -286,10 +274,9 @@
                 actionFaceBtn.disabled = true;
             }
 
-            function runFaceRecognition() {
-                const registeredDescriptor = new Float32Array(currentEmployee.faceDescriptor);
-                const faceMatcher = new faceapi.FaceMatcher([registeredDescriptor]);
-                
+            function runFaceRecognition(registeredDescriptor) {
+                if (!registeredDescriptor) return;
+                const faceMatcher = new faceapi.FaceMatcher([new Float32Array(registeredDescriptor)]);
                 faceDetectionInterval = setInterval(async () => {
                     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
                     if (detection) {
@@ -307,25 +294,26 @@
                     }
                 }, 1000);
             }
-
-            async function handleFaceVerification() {
+            
+            async function handleFaceVerificationAndRecord() {
                 statusMessage.textContent = "جاري معالجة الصورة...";
                 actionFaceBtn.disabled = true;
                 
                 const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                
                 if (!detection) {
-                    showAlert("لم يتمكن من اكتشاف الوجه بوضوح.");
+                    showAlert("لم يتمكن من اكتشاف الوجه بوضوح. حاول مرة أخرى.");
                     stopVideo(); startVideo();
                     return;
                 }
                 
-                const descriptor = Array.from(detection.descriptor);
+                const faceDescriptor = Array.from(detection.descriptor);
                 hideFaceModal();
-                recordEntryWithLocation(descriptor);
+                recordEntryWithLocation(faceDescriptor);
             }
             
-            // --- Timesheet and Reports Logic ---
-            async function recordEntryWithLocation(descriptor) {
+            function recordEntryWithLocation(faceDescriptor) {
+                const employeeData = JSON.parse(localStorage.getItem('employeeData'));
                 showAlert("جاري تحديد الموقع...");
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const location = {
@@ -333,145 +321,123 @@
                         lon: position.coords.longitude
                     };
                     const now = new Date();
-                    const date = now.toISOString().split('T')[0];
+                    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
                     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
                     
                     try {
-                       await api.post('timesheets/entry/verify', { 
-                            employeeName: currentEmployee.name, 
-                            date, time, location, 
-                            faceDescriptor: descriptor 
+                         await api.post('timesheets/entry', { 
+                            employeeName: employeeData.name, 
+                            date, time, location, faceDescriptor 
                         });
-                        showAlert("تم تسجيل حركتك بنجاح!", true);
-                    } catch(error) {
-                        // Error is already shown by api layer
-                    }
+                        showAlert("تم التسجيل بنجاح!", true);
+                    } catch(error) {}
+
                 }, () => {
                     showAlert("لا يمكن الحصول على الموقع. يرجى تفعيل خدمات الموقع.");
                 }, { enableHighAccuracy: true });
             }
 
-            function initReportSelectors() {
-                const monthSelect = document.getElementById('report-month-select');
-                const yearSelect = document.getElementById('report-year-select');
-                const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-                const currentYear = new Date().getFullYear();
-                const currentMonth = new Date().getMonth();
 
-                monthSelect.innerHTML = months.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
-                yearSelect.innerHTML = '';
-                for (let i = 0; i < 5; i++) {
-                    yearSelect.innerHTML += `<option value="${currentYear - i}">${currentYear - i}</option>`;
+            // --- Reports Logic ---
+            function initReportsView() {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth();
+                
+                const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+                reportMonthSelect.innerHTML = months.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+                
+                reportYearSelect.innerHTML = '';
+                for (let y = currentYear; y >= currentYear - 5; y--) {
+                    reportYearSelect.innerHTML += `<option value="${y}">${y}</option>`;
                 }
             }
-
+            
             async function viewMonthlyReport() {
-                const month = document.getElementById('report-month-select').value;
-                const year = document.getElementById('report-year-select').value;
-                
-                const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-                const endDate = new Date(year, parseInt(month) + 1, 0).toISOString().split('T')[0];
+                const employeeData = JSON.parse(localStorage.getItem('employeeData'));
+                const month = parseInt(reportMonthSelect.value);
+                const year = parseInt(reportYearSelect.value);
 
+                const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+                const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+                
                 try {
-                    const records = await api.get(`timesheets?employeeName=${currentEmployee.name}&startDate=${startDate}&endDate=${endDate}`);
-                    currentMonthlyReport = records;
-                    displayMonthlyReport(records);
+                    reportOutput.innerHTML = '<div class="loader"></div>';
+                    const records = await api.get(`timesheets?employeeName=${employeeData.name}&startDate=${startDate}&endDate=${endDate}`);
+                    currentReportData = records;
+                    displayReport(records);
                 } catch(error) {}
             }
             
-            function displayMonthlyReport(records) {
-                reportOutput.innerHTML = '';
-                exportPdfBtn.disabled = records.length === 0;
-
+            function displayReport(records) {
                 if (records.length === 0) {
                     reportOutput.innerHTML = '<p class="text-center text-gray-500">لا توجد سجلات لهذا الشهر.</p>';
+                    exportPdfBtn.classList.add('hidden');
                     return;
                 }
                 
-                records.sort((a, b) => new Date(a.date) - new Date(b.date));
-
+                let reportHTML = '';
                 records.forEach(record => {
-                    const dayCard = document.createElement('div');
-                    dayCard.className = 'p-4 border rounded-lg bg-white';
-                    
-                    let entriesHtml = '<p class="text-sm text-gray-500">لا توجد حركات مسجلة لهذا اليوم.</p>';
-                    if(record.entries && record.entries.length > 0) {
-                        entriesHtml = record.entries.map(entry => {
-                             const mapId = `map-${record.date}-${entry.time.replace(':', '')}`;
-                             setTimeout(() => {
-                                 if (entry.location && entry.location.lat && document.getElementById(mapId)) {
-                                    const map = L.map(mapId).setView([entry.location.lat, entry.location.lon], 15);
-                                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                                    L.marker([entry.location.lat, entry.location.lon]).addTo(map);
-                                 }
-                             }, 100);
-
-                            return `
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center mt-2 border-t pt-2">
-                                    <div>
-                                        <p><span class="font-bold">${entry.type === 'check-in' ? 'دخول' : 'خروج'}:</span> ${entry.time}</p>
-                                        ${entry.location ? `<p class="text-xs text-gray-500">GPS: ${entry.location.lat.toFixed(4)}, ${entry.location.lon.toFixed(4)}</p>` : ''}
+                    reportHTML += `
+                        <div class="p-4 border rounded-lg bg-gray-50">
+                            <h3 class="font-bold text-lg">${new Date(record.date).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric' })}</h3>
+                            <div class="mt-2 space-y-2 text-sm">
+                                ${record.entries.map(entry => `
+                                    <div class="flex justify-between items-center border-b pb-1">
+                                        <span>${entry.type === 'check-in' ? 'دخول:' : 'خروج:'} <span class="font-semibold">${entry.time}</span></span>
+                                        ${entry.location.lat ? `<a href="https://www.google.com/maps?q=${entry.location.lat},${entry.location.lon}" target="_blank" class="text-blue-500 hover:underline">عرض الموقع</a>` : ''}
                                     </div>
-                                    <div id="${mapId}" class="w-full h-32 rounded-md bg-gray-200"></div>
-                                </div>
-                            `;
-                        }).join('');
-                    }
-
-                    dayCard.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-bold">${new Date(record.date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
-                            <p class="text-sm font-bold">إجمالي الساعات: ${(record.totalHours || 0).toFixed(2)}</p>
+                                `).join('')}
+                            </div>
+                            <div class="mt-2 text-right font-bold">إجمالي الساعات: ${record.totalHours.toFixed(2)}</div>
                         </div>
-                        ${entriesHtml}
                     `;
-                    reportOutput.appendChild(dayCard);
                 });
+                
+                reportOutput.innerHTML = reportHTML;
+                exportPdfBtn.classList.remove('hidden');
             }
 
-            function exportReportToPDF() {
+             function exportReportAsPDF() {
+                const employeeData = JSON.parse(localStorage.getItem('employeeData'));
+                const month = reportMonthSelect.options[reportMonthSelect.selectedIndex].text;
+                const year = reportYearSelect.value;
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                const month = document.getElementById('report-month-select').options[document.getElementById('report-month-select').selectedIndex].text;
-                const year = document.getElementById('report-year-select').value;
-                
-                doc.addFont('https://fonts.gstatic.com/s/cairo/v14/SLXLc1nY6Hkvalrub76F.ttf', 'Cairo', 'normal');
+
+                doc.addFont('/path/to/cairo.ttf', 'Cairo', 'normal'); // You need to host the font file
                 doc.setFont('Cairo');
+
+                doc.setFontSize(18);
+                doc.text(`تقرير الحضور لشهر ${month} ${year}`, 105, 20, { align: 'center' });
+                doc.setFontSize(12);
+                doc.text(`الموظف: ${employeeData.name}`, 20, 30);
                 
-                doc.setRTL(true);
-                doc.text(`تقرير الدوام لشهر ${month} ${year}`, 105, 15, { align: 'center' });
-                doc.text(`الموظف: ${currentEmployee.name}`, 200, 25, { align: 'right' });
-                
-                const tableData = currentMonthlyReport.flatMap(record => {
-                    if (!record.entries || record.entries.length === 0) {
-                        return [[new Date(record.date).toLocaleDateString('ar-EG'), 'لا توجد حركات', '', '']];
-                    }
+                const tableData = currentReportData.flatMap(record => {
                     return record.entries.map(entry => [
                         new Date(record.date).toLocaleDateString('ar-EG'),
                         entry.type === 'check-in' ? 'دخول' : 'خروج',
                         entry.time,
-                        entry.location ? `${entry.location.lat.toFixed(4)}, ${entry.location.lon.toFixed(4)}` : 'N/A'
+                        `${entry.location.lat}, ${entry.location.lon}`
                     ]);
                 });
-                
+
                 doc.autoTable({
                     head: [['التاريخ', 'الحركة', 'الوقت', 'الموقع (GPS)']],
                     body: tableData,
-                    startY: 35,
-                    theme: 'grid',
-                    styles: { font: 'Cairo', halign: 'center' },
-                    headStyles: { fillColor: [22, 160, 133] }
+                    startY: 40,
+                    styles: { font: "Cairo", halign: 'center' },
+                    headStyles: { fillColor: [79, 70, 229] },
                 });
-                
-                doc.save(`report_${currentEmployee.name}_${month}_${year}.pdf`);
+
+                doc.save(`report_${employeeData.name}_${month}_${year}.pdf`);
             }
 
             // --- Initial Load ---
             function startup() {
-                const savedEmployee = localStorage.getItem('currentEmployee');
-                if (savedEmployee) {
-                    currentEmployee = JSON.parse(savedEmployee);
-                    showMainApp();
+                const employeeData = localStorage.getItem('employeeData');
+                if (employeeData) {
+                    showMainView();
                 } else {
                     showLoginView();
                 }
@@ -480,15 +446,17 @@
                 logoutBtn.addEventListener('click', handleLogout);
                 recordEntryBtn.addEventListener('click', showFaceModal);
                 cancelFaceBtn.addEventListener('click', hideFaceModal);
-                actionFaceBtn.addEventListener('click', handleFaceVerification);
+                actionFaceBtn.addEventListener('click', handleFaceVerificationAndRecord);
                 viewReportBtn.addEventListener('click', viewMonthlyReport);
-                exportPdfBtn.addEventListener('click', exportReportToPDF);
-
-                loadingOverlay.style.display = 'none';
+                exportPdfBtn.addEventListener('click', exportReportAsPDF);
+                
+                loadFaceApiModels();
             }
 
             startup();
         });
     </script>
+
 </body>
 </html>
+
