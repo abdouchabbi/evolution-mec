@@ -10,7 +10,7 @@ const employeeRoutes = require('./routes/employee.routes.js');
 const clientRoutes = require('./routes/client.routes.js');
 const projectRoutes = require('./routes/project.routes.js');
 const timesheetRoutes = require('./routes/timesheet.routes.js');
-const userRoutes = require('./routes/user.routes.js'); 
+const userRoutes = require('./routes/user.routes.js'); // <-- الخطوة 1: استيراد مسارات المستخدمين
 const { notFound, errorHandler } = require('./middleware/error.middleware.js');
 
 
@@ -42,7 +42,7 @@ async function startServer() {
     app.use('/api/clients', clientRoutes);
     app.use('/api/projects', projectRoutes);
     app.use('/api/timesheets', timesheetRoutes);
-    app.use('/api/users', userRoutes); // <-- تم ربط مسارات المستخدمين
+    app.use('/api/users', userRoutes); // <-- الخطوة 2: ربط مسارات المستخدمين
 
     // وسيطات معالجة الأخطاء (يجب أن تكون في النهاية)
     app.use(notFound);

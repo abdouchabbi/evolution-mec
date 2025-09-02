@@ -1,23 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const {
-    getClients,
-    createClient,
-    deleteClient,
-} = require('../controllers/client.controller.js');
-const { protect } = require('../middleware/auth.middleware.js');
+    registerUser,
+    loginUser,
+} = require('../controllers/user.controller.js');
 
-// -----------------------------------------------------------------------------
-// تم الآن تأمين جميع المسارات المتعلقة بالعملاء.
-// لا يمكن لأي شخص التعامل مع هذه البيانات إلا إذا كان مديرًا مصرحًا له.
-// -----------------------------------------------------------------------------
+// ======================================================
+//                 *** المسارات العامة ***
+//      (يمكن الوصول إليها بدون تسجيل دخول)
+// ======================================================
 
-router.route('/')
-    .get(protect, getClients)
-    .post(protect, createClient);
+// @route   POST /api/users/register
+// @desc    تسجيل حساب مستخدم جديد (مدير)
+router.post('/register', registerUser);
 
-router.route('/:id')
-    .delete(protect, deleteClient);
+// @route   POST /api/users/login
+// @desc    تسجيل دخول المستخدم والحصول على مفتاح وصول
+router.post('/login', loginUser);
 
 module.exports = router;
 
