@@ -1,24 +1,18 @@
-// ------------------------------------------
-// server.js
-// ------------------------------------------
-
-// استخدام النسخة الصافية من TensorFlow.js على Node (Pure JS)
-require('@tensorflow/tfjs');
-
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
-const { loadModels } = require('./faceApi'); // استيراد خدمة تحميل النماذج
+const { loadModels } = require('./faceApi'); 
 
-// استيراد جميع ملفات المسارات
+// استيراد جميع وحدات المسارات
 const employeeRoutes = require('./routes/employee.routes.js');
 const clientRoutes = require('./routes/client.routes.js');
 const projectRoutes = require('./routes/project.routes.js');
 const timesheetRoutes = require('./routes/timesheet.routes.js');
-const userRoutes = require('./routes/user.routes.js');
+const userRoutes = require('./routes/user.routes.js'); 
 const { notFound, errorHandler } = require('./middleware/error.middleware.js');
+
 
 // -----------------------------------------------------------------------------
 // بدء تشغيل الخادم
@@ -28,7 +22,7 @@ async function startServer() {
     await loadModels();
 
     // الاتصال بقاعدة البيانات
-    await connectDB();
+    connectDB();
 
     const app = express();
     const PORT = process.env.PORT || 5000;
@@ -42,15 +36,15 @@ async function startServer() {
     app.get('/', (req, res) => {
         res.send('Evolution MEC API is running successfully.');
     });
-
-    // ربط جميع وحدات المسارات (API Routes)
+    
+    // ربط وحدات المسارات (API Routes)
     app.use('/api/employees', employeeRoutes);
     app.use('/api/clients', clientRoutes);
     app.use('/api/projects', projectRoutes);
     app.use('/api/timesheets', timesheetRoutes);
-    app.use('/api/users', userRoutes);
+    app.use('/api/users', userRoutes); // <-- تم ربط مسارات المستخدمين
 
-    // وسيطات معالجة الأخطاء
+    // وسيطات معالجة الأخطاء (يجب أن تكون في النهاية)
     app.use(notFound);
     app.use(errorHandler);
 
@@ -61,3 +55,4 @@ async function startServer() {
 }
 
 startServer();
+

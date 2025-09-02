@@ -11,16 +11,25 @@ const {
 } = require('../controllers/user.controller.js');
 const { protect } = require('../middleware/auth.middleware.js');
 
-// Routes for public access (registration and login)
+// ======================================================
+//                 *** المسارات العامة ***
+//      (يمكن الوصول إليها بدون تسجيل دخول)
+// ======================================================
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 
-// Routes for the logged-in user's own profile
+// ======================================================
+//           *** المسارات الخاصة بالمستخدم ***
+//      (للمستخدم المسجل دخوله للتحكم بملفه الشخصي)
+// ======================================================
 router.route('/profile')
     .get(protect, getUserProfile)
     .put(protect, updateUserProfile);
 
-// Admin-only routes for managing all users
+// ======================================================
+//              *** المسارات الخاصة بالمدير ***
+//        (للمدير للتحكم بجميع المستخدمين الآخرين)
+// ======================================================
 router.route('/')
     .get(protect, getUsers);
 
