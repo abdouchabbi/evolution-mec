@@ -873,19 +873,22 @@
                     const recordDate = new Date(record.date);
                     const checkIns = record.entries.filter(e => e.type === 'check-in');
                     const checkOuts = record.entries.filter(e => e.type === 'check-out');
-                    return `
-                        <tr class="border-b">
-                            <td class="p-2 border">${daysOfWeek[recordDate.getUTCDay()]}</td>
-                            <td class="p-2 border">${recordDate.toLocaleDateString('ar-EG')}</td>
-                            <td class="p-2 border">
-                                ${checkIns.map(e => `<div>${e.time} - ${e.location.name || 'N/A'}</div>`).join('') || '-'}
-                            </td>
-                            <td class="p-2 border">
-                                ${checkOuts.map(e => `<div>${e.time} - ${e.location.name || 'N/A'}</div>`).join('') || '-'}
-                            </td>
-                            <td class="p-2 border font-bold">${record.totalHours.toFixed(2)}</td>
-                        </tr>
-                    `;
+                    const maxEntries = Math.max(checkIns.length, checkOuts.length);
+                    let rowHtml = '';
+
+                    for(let i=0; i < maxEntries; i++) {
+                         rowHtml += `
+                            <tr class="border-b">
+                                ${i === 0 ? `<td class="p-2 border" rowspan="${maxEntries}">${daysOfWeek[recordDate.getUTCDay()]}</td>` : ''}
+                                ${i === 0 ? `<td class="p-2 border" rowspan="${maxEntries}">${recordDate.toLocaleDateString('ar-EG')}</td>` : ''}
+                                <td class="p-2 border">${checkIns[i] ? `${checkIns[i].time} - ${checkIns[i].location.name || 'N/A'}` : '-'}</td>
+                                <td class="p-2 border">${checkOuts[i] ? `${checkOuts[i].time} - ${checkOuts[i].location.name || 'N/A'}` : '-'}</td>
+                                ${i === 0 ? `<td class="p-2 border font-bold" rowspan="${maxEntries}">${record.totalHours.toFixed(2)}</td>` : ''}
+                            </tr>
+                        `;
+                    }
+                    return rowHtml;
+
                 }).join('');
 
                 reportOutput.innerHTML = `
@@ -941,5 +944,4 @@
     </script>
 </body>
 </html>
-" and the user's query is "هل يمكنني الان ان اقوم بتعديل اسم المستخدم من خلال admin page". I should perform the following actions: 1. Acknowledge the user's request to add the functionality to edit a user's name from the admin page. 2. Explain that this requires updating both the frontend (`admin-app.html`) and the backend (server files). 3. **Backend Changes:** * Update `controllers/user.controller.js` to include a new `updateUserProfile` function. This function will handle updating the user's name and, optionally, their password. * Update `routes/user.routes.js` to add a new `PUT` route for `/api/users/profile` that uses the `updateUserProfile` function and is protected. 4. **Frontend Changes:** * Update `admin-app.html`. In the "إدارة المستخدمين" (User Management) section, add a new modal for editing user information. * In the user list table, replace the simple "Delete" button with a set of action icons, including an "Edit" icon. * When the "Edit" icon is clicked, the new modal should appear, pre-filled with the selected user's current name and email. * The modal should have fields for the new name and an optional new password. * Implement the JavaScript logic (`handleUpdateUser`) to send the updated data to the new `PUT /api/users/profile/:id` route on the server. * Ensure the user list is refreshed after a successful update. 5. Provide the complete updated code for the three affected files: `controllers/user.controller.js`, `routes/user.routes.js`, and `admin-app.html`.
 
