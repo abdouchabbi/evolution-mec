@@ -3,8 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تطبيق الموظف</title>
+    <title>تطبيق الموظف (React)</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel to transpile JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -12,8 +19,6 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
         body { font-family: 'Cairo', sans-serif; }
-        .modal { transition: opacity 0.3s ease; }
-        .modal-content { transition: transform 0.3s ease, opacity 0.3s ease; }
         .loader {
             border: 4px solid #f3f3f3; border-radius: 50%;
             border-top: 4px solid #4f46e5; width: 40px; height: 40px;
@@ -28,377 +33,275 @@
     </style>
 </head>
 <body class="bg-gray-100">
+    <div id="root"></div>
 
-    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-75 z-[100] flex flex-col items-center justify-center">
-        <div class="loader"></div>
-        <p class="text-white text-lg mt-4">جاري تحميل النظام...</p>
-    </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-    <!-- Face Recognition View -->
-    <div id="face-recognition-view" class="flex items-center justify-center min-h-screen bg-gray-200 hidden">
-         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-            <h2 class="text-2xl font-bold text-gray-700">الرجاء النظر إلى الكاميرا</h2>
-             <div class="bg-gray-200 w-full aspect-square rounded-md my-4 relative">
-                <video id="video-login" class="w-full h-full rounded-md" autoplay muted playsinline></video>
-             </div>
-             <p id="recognition-status" class="text-lg font-semibold text-gray-600 h-8">جاري البحث عن وجه...</p>
-        </div>
-    </div>
+        const API_URL = 'https://evolution-mec2.onrender.com/api';
 
-    <!-- PIN View -->
-    <div id="pin-view" class="flex items-center justify-center min-h-screen bg-gray-200 hidden">
-        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-            <h2 class="text-2xl font-bold text-gray-700">أهلاً بك، <span id="pin-welcome-name"></span>!</h2>
-            <p class="text-gray-600">الرجاء إدخال رمز PIN الخاص بك</p>
-            <form id="pin-form">
-                <div id="pin-inputs" class="flex justify-center my-4">
-                    <input type="password" maxlength="1" class="pin-input">
-                    <input type="password" maxlength="1" class="pin-input">
-                    <input type="password" maxlength="1" class="pin-input">
-                    <input type="password" maxlength="1" class="pin-input">
-                </div>
-                <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
-                    تحقق
-                </button>
-            </form>
-        </div>
-    </div>
+        // --- API Communication Layer ---
+        const api = {
+            async request(endpoint, method = 'GET', body = null, showAlert) {
+                try {
+                    const response = await fetch(`${API_URL}/${endpoint}`, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: body ? JSON.stringify(body) : null,
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || `خطأ في الخادم: ${response.statusText}`);
+                    }
+                    return data;
+                } catch (error) {
+                    console.error(`${method} ${endpoint} failed:`, error);
+                    if (showAlert) {
+                        const message = error.message.includes('Failed to fetch') 
+                            ? 'فشل الاتصال بالخادم. الرجاء التأكد من أن الخادم يعمل.'
+                            : `حدث خطأ: ${error.message}`;
+                        showAlert(message);
+                    }
+                    throw error;
+                }
+            },
+            get(endpoint, showAlert) { return this.request(endpoint, 'GET', null, showAlert); },
+            post(endpoint, body, showAlert) { return this.request(endpoint, 'POST', body, showAlert); }
+        };
 
-
-    <!-- Main App View -->
-    <div id="main-app-view" class="hidden container mx-auto p-4 max-w-4xl">
-        <header class="flex justify-between items-center mb-6">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-800">مرحبا، <span id="welcome-name"></span>!</h1>
-                <p class="text-gray-500">جاهز لبدء يومك؟</p>
+        // --- Helper Components ---
+        const Loader = ({ message }) => (
+            <div className="fixed inset-0 bg-black bg-opacity-75 z-[100] flex flex-col items-center justify-center">
+                <div className="loader"></div>
+                <p className="text-white text-lg mt-4">{message}</p>
             </div>
-            <button id="logout-btn" class="text-sm text-red-600 hover:underline">تسجيل الخروج</button>
-        </header>
+        );
 
-        <main class="bg-white p-6 rounded-lg shadow-md text-center">
-            <h2 class="text-xl font-semibold mb-2">تسجيل الحضور والانصراف</h2>
-            <p id="current-date" class="text-gray-500 mb-6"></p>
-            <button id="record-entry-btn" class="bg-green-500 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:bg-green-600 transition text-lg">
-                تسجيل الآن
-            </button>
-        </main>
+        const AlertModal = ({ message, isSuccess, onClose }) => (
+            <div className="modal fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-[60] p-4">
+                <div className="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
+                    <p className={isSuccess ? 'text-green-600' : 'text-red-600'}>{message}</p>
+                    <div className="mt-4 flex justify-end">
+                        <button onClick={onClose} className="bg-blue-600 text-white px-4 py-2 rounded-md">موافق</button>
+                    </div>
+                </div>
+            </div>
+        );
         
-        <footer class="mt-8">
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-semibold mb-4">سجلاتي الشهرية</h2>
-                <div class="flex items-end gap-4 mb-4">
-                    <div class="flex-grow">
-                        <label for="report-month-select" class="block text-sm font-medium">اختر الشهر:</label>
-                        <select id="report-month-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                    </div>
-                    <div class="flex-grow">
-                        <label for="report-year-select" class="block text-sm font-medium">اختر السنة:</label>
-                        <select id="report-year-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                    </div>
-                    <button id="view-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg">عرض</button>
-                    <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg hidden">تصدير PDF</button>
-                </div>
-                <div id="report-output" class="space-y-4 max-h-[50vh] overflow-auto border-t pt-4">
-                    <p class="text-center text-gray-500">الرجاء اختيار شهر لعرض التقرير.</p>
-                </div>
-            </div>
-        </footer>
+        // --- View Components ---
+        const FaceRecognitionView = ({ setRecognizedEmployee, showAlert }) => {
+            const videoRef = useRef();
+            const [status, setStatus] = useState('جاري البحث عن وجه...');
+            let recognitionInterval = null;
 
-    </div>
-
-    <!-- Modals -->
-    <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-[60] p-4">
-        <div id="alert-modal-content" class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md transform scale-95 opacity-0"></div>
-    </div>
-    <div id="verification-modal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
-        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
-            <h3 class="text-lg font-bold mb-4">التحقق من الهوية للتسجيل</h3>
-            <div class="bg-gray-200 w-full aspect-square rounded-md mb-4">
-                <video id="video-verify" class="w-full h-full rounded-md" autoplay muted playsinline></video>
-            </div>
-            <p id="verification-status" class="mb-4 h-6">الرجاء توجيه الوجه للكاميرا...</p>
-            <div class="flex gap-4">
-                <button id="cancel-verification-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">إلغاء</button>
-                <button id="confirm-verification-btn" class="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400" disabled>تأكيد</button>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- Global State ---
-            const API_URL = 'https://evolution-mec2.onrender.com/api'; // Use your deployed server URL
-            let faceApiLoaded = false;
-            let currentStream = null;
-            let faceRecognitionInterval = null;
-            let currentReportData = [];
-            let recognizedEmployee = null;
-
-            // --- UI Elements ---
-            const loadingOverlay = document.getElementById('loading-overlay');
-            const faceRecognitionView = document.getElementById('face-recognition-view');
-            const pinView = document.getElementById('pin-view');
-            const mainAppView = document.getElementById('main-app-view');
-            const pinForm = document.getElementById('pin-form');
-            const pinInputsContainer = document.getElementById('pin-inputs');
-            const pinWelcomeName = document.getElementById('pin-welcome-name');
-            const logoutBtn = document.getElementById('logout-btn');
-            const welcomeName = document.getElementById('welcome-name');
-            const currentDateEl = document.getElementById('current-date');
-            const recordEntryBtn = document.getElementById('record-entry-btn');
-            const alertModal = document.getElementById('alert-modal');
-            const alertModalContent = document.getElementById('alert-modal-content');
-            const videoLogin = document.getElementById('video-login');
-            const recognitionStatus = document.getElementById('recognition-status');
-            const reportMonthSelect = document.getElementById('report-month-select');
-            const reportYearSelect = document.getElementById('report-year-select');
-            const viewReportBtn = document.getElementById('view-report-btn');
-            const exportPdfBtn = document.getElementById('export-pdf-btn');
-            const reportOutput = document.getElementById('report-output');
-            const verificationModal = document.getElementById('verification-modal');
-            const videoVerify = document.getElementById('video-verify');
-            const verificationStatus = document.getElementById('verification-status');
-            const confirmVerificationBtn = document.getElementById('confirm-verification-btn');
-            const cancelVerificationBtn = document.getElementById('cancel-verification-btn');
-            
-            // --- API Communication Layer ---
-            const api = {
-                async request(endpoint, method = 'GET', body = null) {
-                    try {
-                        const response = await fetch(`${API_URL}/${endpoint}`, {
-                            method,
-                            headers: { 'Content-Type': 'application/json' },
-                            body: body ? JSON.stringify(body) : null,
-                        });
-                        const data = await response.json();
-                        if (!response.ok) {
-                            throw new Error(data.message || `خطأ في الخادم: ${response.statusText}`);
-                        }
-                        return data;
-                    } catch (error) {
-                         if (error.message.includes('Failed to fetch')) {
-                             showAlert('فشل الاتصال بالخادم. الرجاء التأكد من أن الخادم يعمل.');
-                        } else {
-                             showAlert(`حدث خطأ: ${error.message}`);
-                        }
-                        console.error(`${method} ${endpoint} failed:`, error);
-                        throw error;
+            useEffect(() => {
+                startVideo();
+                return () => {
+                    if (recognitionInterval) clearInterval(recognitionInterval);
+                    if (videoRef.current && videoRef.current.srcObject) {
+                        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
                     }
-                },
-                get(endpoint) { return this.request(endpoint); },
-                post(endpoint, body) { return this.request(endpoint, 'POST', body); }
-            };
+                };
+            }, []);
 
-            // --- Authentication & View Management ---
-            function showView(viewToShow) {
-                [faceRecognitionView, pinView, mainAppView].forEach(view => {
-                    view.classList.toggle('hidden', view.id !== viewToShow);
-                });
-            }
-
-            function handleLogout() {
-                recognizedEmployee = null;
-                localStorage.removeItem('loggedInEmployee');
-                stopVideo();
-                showView('face-recognition-view');
-                startVideo(videoLogin, 'login');
-            }
-            
-            function checkLoggedInState() {
-                const storedEmployee = localStorage.getItem('loggedInEmployee');
-                if (storedEmployee) {
-                    recognizedEmployee = JSON.parse(storedEmployee);
-                    showMainView();
-                } else {
-                    showView('face-recognition-view');
-                    startVideo(videoLogin, 'login');
-                }
-            }
-            
-            function showMainView() {
-                showView('main-app-view');
-                welcomeName.textContent = recognizedEmployee.name;
-                currentDateEl.textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                initReportsView();
-            }
-
-            // --- PIN Logic ---
-            function setupPinInputs() {
-                const inputs = pinInputsContainer.querySelectorAll('input');
-                inputs.forEach((input, index) => {
-                    input.addEventListener('input', () => {
-                        if (input.value && index < inputs.length - 1) {
-                            inputs[index + 1].focus();
-                        }
-                    });
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === "Backspace" && !input.value && index > 0) {
-                             inputs[index - 1].focus();
-                        }
-                    });
-                });
-            }
-
-            async function handlePinVerification(e) {
-                e.preventDefault();
-                const pin = Array.from(pinInputsContainer.querySelectorAll('input')).map(input => input.value).join('');
-                if (pin.length !== 4) return showAlert('الرجاء إدخال 4 أرقام.');
-
+            const startVideo = async () => {
                 try {
-                    const employeeData = await api.post('employees/verify-pin', { employeeId: recognizedEmployee._id, pin });
-                    localStorage.setItem('loggedInEmployee', JSON.stringify(employeeData));
-                    showMainView();
-                } catch (error) {
-                    pinForm.reset();
-                    pinInputsContainer.querySelector('input').focus();
-                }
-            }
-
-            // --- Modals ---
-            function showAlert(message, isSuccess = false) {
-                 alertModalContent.innerHTML = `<p class="${isSuccess ? 'text-green-600' : 'text-red-600'}">${message}</p><div class="mt-4 flex justify-end"><button id="modal-ok-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md">موافق</button></div>`;
-                 document.getElementById('modal-ok-btn').onclick = hideAlert;
-                 alertModal.classList.remove('hidden');
-                 alertModal.classList.add('flex');
-                 setTimeout(() => alertModalContent.classList.remove('scale-95', 'opacity-0'), 10);
-            }
-             function hideAlert() {
-                alertModalContent.classList.add('scale-95', 'opacity-0');
-                setTimeout(() => alertModal.classList.add('hidden'), 300);
-            }
-
-            // --- Face API ---
-            async function loadFaceApiModelsInBackground() {
-                if(faceApiLoaded) return true;
-                try {
-                    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-                    await Promise.all([
-                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                    ]);
-                    faceApiLoaded = true;
-                    console.log("Face API models loaded successfully.");
-                    return true;
-                } catch (error) {
-                    console.error("Error loading face-api models:", error);
-                    recognitionStatus.textContent = 'فشل تحميل نماذج الوجه';
-                    return false;
-                }
-            }
-
-            async function startVideo(videoElement, mode) {
-                if (!faceApiLoaded) {
-                    recognitionStatus.textContent = "جاري تهيئة الكاميرا...";
-                    await loadFaceApiModelsInBackground();
-                }
-                
-                try {
-                    currentStream = await navigator.mediaDevices.getUserMedia({ video: {} });
-                    videoElement.srcObject = currentStream;
-
-                    if (mode === 'login') {
-                        const employeesWithFaces = await api.get('employees/face-login-data');
-                         if (employeesWithFaces.length === 0) {
-                            recognitionStatus.textContent = "لا يوجد موظفون مسجلون بالوجه.";
-                            return;
-                        }
-                        const labeledFaceDescriptors = employeesWithFaces.map(emp =>
-                            new faceapi.LabeledFaceDescriptors(emp.name, [new Float32Array(emp.faceDescriptor)])
-                        );
-                        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); // Stricter tolerance
-                        videoElement.addEventListener('play', () => runFaceLogin(faceMatcher, employeesWithFaces));
-                    } else if (mode === 'verify') {
-                        const employeeData = JSON.parse(localStorage.getItem('loggedInEmployee'));
-                        const faceMatcher = new faceapi.FaceMatcher([new Float32Array(employeeData.faceDescriptor)], 0.5);
-                        videoElement.addEventListener('play', () => runFaceVerification(faceMatcher));
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                    videoRef.current.srcObject = stream;
+                    
+                    const employeesWithFaces = await api.get('employees/face-login-data', showAlert);
+                    if (employeesWithFaces.length === 0) {
+                        setStatus("لا يوجد موظفون مسجلون بالوجه.");
+                        return;
                     }
-                } catch (err) {
-                    showAlert("لا يمكن الوصول إلى الكاميرا. يرجى منح الإذن اللازم.");
-                }
-            }
-            
-            function stopVideo() {
-                if (faceRecognitionInterval) clearInterval(faceRecognitionInterval);
-                if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-                videoLogin.srcObject = null;
-                videoVerify.srcObject = null;
-            }
-
-            function runFaceLogin(faceMatcher, employees) {
-                let noMatchCounter = 0;
-                faceRecognitionInterval = setInterval(async () => {
-                    const detection = await faceapi.detectSingleFace(videoLogin, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                    if (detection) {
-                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-                        if (bestMatch.label !== 'unknown') {
-                            stopVideo();
-                            recognizedEmployee = employees.find(e => e.name === bestMatch.label);
-                            pinWelcomeName.textContent = recognizedEmployee.name;
-                            showView('pin-view');
-                            pinInputsContainer.querySelector('input').focus();
-                        } else {
-                            noMatchCounter++;
-                            if (noMatchCounter > 5) {
-                                recognitionStatus.textContent = "لم يتم التعرف. حاول تحريك رأسك قليلاً.";
+                    
+                    const labeledFaceDescriptors = employeesWithFaces.map(emp =>
+                        new faceapi.LabeledFaceDescriptors(emp.name, [new Float32Array(emp.faceDescriptor)])
+                    );
+                    const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
+                    
+                    recognitionInterval = setInterval(async () => {
+                        if (videoRef.current && !videoRef.current.paused) {
+                            const detection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                            if (detection) {
+                                const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                                if (bestMatch.label !== 'unknown') {
+                                    const employee = employeesWithFaces.find(e => e.name === bestMatch.label);
+                                    setRecognizedEmployee(employee);
+                                } else {
+                                    setStatus("لم يتم التعرف عليك. حاول مرة أخرى.");
+                                }
                             } else {
-                                recognitionStatus.textContent = "لم يتم التعرف عليك. حاول مرة أخرى.";
+                                setStatus("جاري البحث عن وجه...");
                             }
                         }
-                    } else {
-                         recognitionStatus.textContent = "جاري البحث عن وجه...";
-                         noMatchCounter = 0;
-                    }
-                }, 1500);
-            }
-            
-            function runFaceVerification(faceMatcher) {
-                 faceRecognitionInterval = setInterval(async () => {
-                    const detection = await faceapi.detectSingleFace(videoVerify, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                    if (detection) {
-                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-                        if (bestMatch.label !== 'unknown') {
-                            verificationStatus.textContent = "تم التعرف عليك. جاهز للتأكيد.";
-                            confirmVerificationBtn.disabled = false;
-                        } else {
-                            verificationStatus.textContent = "الوجه غير مطابق.";
-                            confirmVerificationBtn.disabled = true;
-                        }
-                    } else {
-                         verificationStatus.textContent = "لم يتم اكتشاف وجه.";
-                         confirmVerificationBtn.disabled = true;
-                    }
-                }, 1000);
-            }
-            
-            // --- Entry Recording ---
-            async function handleRecordEntryClick() {
-                if (!faceApiLoaded) return showAlert("نماذج الوجه لم تحمل بعد.");
-                verificationModal.classList.remove('hidden');
-                verificationModal.classList.add('flex');
-                startVideo(videoVerify, 'verify');
-            }
+                    }, 2000);
 
-            async function handleConfirmVerification() {
-                verificationStatus.textContent = "جاري معالجة الصورة...";
-                confirmVerificationBtn.disabled = true;
-
-                const detection = await faceapi.detectSingleFace(videoVerify, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                
-                if (!detection) {
-                    showAlert("لم يتمكن من اكتشاف الوجه بوضوح. حاول مرة أخرى.");
-                    stopVideo(); startVideo(videoVerify, 'verify');
-                    return;
+                } catch (err) {
+                    // Errors from api.get are already handled by the api layer
                 }
-                
-                const faceDescriptor = Array.from(detection.descriptor);
-                stopVideo();
-                verificationModal.classList.add('hidden');
-                recordEntryWithLocation(faceDescriptor);
-            }
+            };
 
-            function recordEntryWithLocation(faceDescriptor) {
-                showAlert("جاري تحديد الموقع...");
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-gray-200">
+                    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
+                        <h2 className="text-2xl font-bold text-gray-700">الرجاء النظر إلى الكاميرا</h2>
+                        <div className="bg-gray-200 w-full aspect-square rounded-md my-4 relative">
+                            <video ref={videoRef} className="w-full h-full rounded-md" autoPlay muted playsInline></video>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-600 h-8">{status}</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const PinView = ({ recognizedEmployee, setLoggedInEmployee, showAlert }) => {
+            const [pin, setPin] = useState(Array(4).fill(""));
+            const inputRefs = useRef([]);
+
+            const handleInputChange = (e, index) => {
+                const newPin = [...pin];
+                newPin[index] = e.target.value;
+                setPin(newPin);
+                if (e.target.value && index < 3) inputRefs.current[index + 1].focus();
+            };
+
+            const handleKeyDown = (e, index) => {
+                if (e.key === "Backspace" && !pin[index] && index > 0) inputRefs.current[index - 1].focus();
+            };
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const pinCode = pin.join('');
+                if (pinCode.length !== 4) return showAlert("الرجاء إدخال 4 أرقام.");
+                try {
+                    const employeeData = await api.post('employees/verify-pin', { employeeId: recognizedEmployee._id, pin: pinCode }, showAlert);
+                    setLoggedInEmployee(employeeData);
+                } catch (error) {
+                    setPin(Array(4).fill(""));
+                    inputRefs.current[0].focus();
+                }
+            };
+
+            return (
+                 <div className="flex items-center justify-center min-h-screen bg-gray-200">
+                    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
+                        <h2 className="text-2xl font-bold text-gray-700">أهلاً بك، {recognizedEmployee.name}!</h2>
+                        <p className="text-gray-600">الرجاء إدخال رمز PIN الخاص بك</p>
+                        <form onSubmit={handleSubmit}>
+                            <div className="flex justify-center my-4">
+                                {pin.map((digit, index) => (
+                                    <input
+                                        key={index}
+                                        ref={el => inputRefs.current[index] = el}
+                                        type="password"
+                                        maxLength="1"
+                                        value={digit}
+                                        onChange={e => handleInputChange(e, index)}
+                                        onKeyDown={e => handleKeyDown(e, index)}
+                                        className="pin-input"
+                                    />
+                                ))}
+                            </div>
+                            <button type="submit" className="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700">تحقق</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        const MainAppView = ({ loggedInEmployee, onLogout, showAlert }) => {
+            const [isVerificationModalOpen, setVerificationModalOpen] = useState(false);
+            const [isReportModalOpen, setReportModalOpen] = useState(false);
+            
+            return (
+                <div className="container mx-auto p-4 max-w-4xl">
+                    <header className="flex justify-between items-center mb-6">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-800">مرحبا، {loggedInEmployee.name}!</h1>
+                            <p className="text-gray-500">جاهز لبدء يومك؟</p>
+                        </div>
+                        <button onClick={onLogout} className="text-sm text-red-600 hover:underline">تسجيل الخروج</button>
+                    </header>
+
+                    <main className="bg-white p-6 rounded-lg shadow-md text-center">
+                        <h2 className="text-xl font-semibold mb-2">تسجيل الحضور والانصراف</h2>
+                        <p className="text-gray-500 mb-6">{new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        <button onClick={() => setVerificationModalOpen(true)} className="bg-green-500 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:bg-green-600 transition text-lg">تسجيل الآن</button>
+                    </main>
+
+                    <footer className="mt-8">
+                        <div className="bg-white p-6 rounded-lg shadow-md">
+                           <h2 className="text-xl font-semibold mb-4">سجلاتي الشهرية</h2>
+                           <button onClick={() => setReportModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg">عرض السجلات</button>
+                        </div>
+                    </footer>
+
+                    {isVerificationModalOpen && <VerificationModal loggedInEmployee={loggedInEmployee} onClose={() => setVerificationModalOpen(false)} showAlert={showAlert} />}
+                    {isReportModalOpen && <ReportModal loggedInEmployee={loggedInEmployee} onClose={() => setReportModalOpen(false)} showAlert={showAlert} />}
+                </div>
+            );
+        };
+
+        const VerificationModal = ({ loggedInEmployee, onClose, showAlert }) => {
+             const videoRef = useRef();
+             const [status, setStatus] = useState('الرجاء توجيه الوجه للكاميرا...');
+             const [isVerified, setVerified] = useState(false);
+             const [isSubmitting, setIsSubmitting] = useState(false);
+             let verificationInterval = null;
+
+             useEffect(() => {
+                startVerificationVideo();
+                return () => {
+                    if (verificationInterval) clearInterval(verificationInterval);
+                    if (videoRef.current && videoRef.current.srcObject) {
+                        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+                    }
+                };
+            }, []);
+
+            const startVerificationVideo = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                    videoRef.current.srcObject = stream;
+
+                    const faceMatcher = new faceapi.FaceMatcher([new Float32Array(loggedInEmployee.faceDescriptor)], 0.5);
+                    
+                    verificationInterval = setInterval(async () => {
+                         if (videoRef.current && !videoRef.current.paused) {
+                            const detection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                            if (detection) {
+                                const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                                if (bestMatch.label !== 'unknown') {
+                                    setStatus("تم التعرف عليك. جاهز للتأكيد.");
+                                    setVerified(true);
+                                } else {
+                                    setStatus("الوجه غير مطابق.");
+                                    setVerified(false);
+                                }
+                            } else {
+                                setStatus("لم يتم اكتشاف وجه.");
+                                setVerified(false);
+                            }
+                        }
+                    }, 1000);
+                } catch (err) {
+                     showAlert("لا يمكن الوصول إلى الكاميرا. يرجى منح الإذن اللازم.");
+                     onClose();
+                }
+            };
+            
+            const handleConfirm = async () => {
+                setIsSubmitting(true);
+                setStatus("جاري تحديد الموقع...");
+                
+                const detection = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                if (!detection) {
+                    setIsSubmitting(false);
+                    return showAlert("فشل التقاط صورة الوجه.");
+                }
+                const faceDescriptor = Array.from(detection.descriptor);
+
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const location = { lat: position.coords.latitude, lon: position.coords.longitude };
                     const now = new Date();
@@ -407,133 +310,215 @@
                     
                     try {
                          await api.post('timesheets/entry', { 
-                            employeeName: recognizedEmployee.name, 
-                            date, time, location, faceDescriptor 
-                        });
+                            employeeName: loggedInEmployee.name, 
+                            date, time, location, faceDescriptor
+                        }, showAlert);
                         showAlert("تم التسجيل بنجاح!", true);
-                    } catch(error) {}
+                    } catch(error) { /* error is handled by the api layer */ }
+                    finally {
+                        onClose();
+                    }
 
                 }, () => {
                     showAlert("لا يمكن الحصول على الموقع. يرجى تفعيل خدمات الموقع.");
+                    setIsSubmitting(false);
+                    onClose();
                 }, { enableHighAccuracy: true });
-            }
+            };
 
-
-            // --- Reports Logic ---
-            function initReportsView() {
-                const now = new Date();
-                const currentYear = now.getFullYear();
-                const currentMonth = now.getMonth();
-                
-                const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-                reportMonthSelect.innerHTML = months.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
-                
-                reportYearSelect.innerHTML = '';
-                for (let y = currentYear; y >= currentYear - 5; y--) {
-                    reportYearSelect.innerHTML += `<option value="${y}">${y}</option>`;
-                }
-            }
-            
-            async function viewMonthlyReport() {
-                const month = parseInt(reportMonthSelect.value);
-                const year = parseInt(reportYearSelect.value);
-
-                const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-                const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
-                
-                try {
-                    reportOutput.innerHTML = '<div class="loader"></div>';
-                    const records = await api.get(`timesheets?employeeName=${recognizedEmployee.name}&startDate=${startDate}&endDate=${endDate}`);
-                    currentReportData = records;
-                    displayReport(records);
-                } catch(error) {}
-            }
-            
-            function displayReport(records) {
-                if (records.length === 0) {
-                    reportOutput.innerHTML = '<p class="text-center text-gray-500">لا توجد سجلات لهذا الشهر.</p>';
-                    exportPdfBtn.classList.add('hidden');
-                    return;
-                }
-                
-                let reportHTML = '';
-                records.forEach(record => {
-                    reportHTML += `
-                        <div class="p-4 border rounded-lg bg-gray-50">
-                            <h3 class="font-bold text-lg">${new Date(record.date).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric' })}</h3>
-                            <div class="mt-2 space-y-2 text-sm">
-                                ${record.entries.map(entry => `
-                                    <div class="flex justify-between items-center border-b pb-1">
-                                        <span>${entry.type === 'check-in' ? 'دخول:' : 'خروج:'} <span class="font-semibold">${entry.time}</span></span>
-                                        ${entry.location.lat ? `<a href="https://www.google.com/maps?q=${entry.location.lat},${entry.location.lon}" target="_blank" class="text-blue-500 hover:underline">عرض الموقع</a>` : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                            <div class="mt-2 text-right font-bold">إجمالي الساعات: ${record.totalHours.toFixed(2)}</div>
+             return (
+                 <div className="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="modal-content bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+                        <h3 className="text-lg font-bold mb-4">التحقق من الهوية للتسجيل</h3>
+                        <div className="bg-gray-200 w-full aspect-square rounded-md mb-4">
+                            <video ref={videoRef} className="w-full h-full rounded-md" autoPlay muted playsInline></video>
                         </div>
-                    `;
-                });
-                
-                reportOutput.innerHTML = reportHTML;
-                exportPdfBtn.classList.remove('hidden');
-            }
+                        <p className="mb-4 h-6">{status}</p>
+                        <div className="flex gap-4">
+                            <button onClick={onClose} disabled={isSubmitting} className="w-full bg-gray-500 text-white py-2 rounded-lg disabled:bg-gray-300">إلغاء</button>
+                            <button onClick={handleConfirm} disabled={!isVerified || isSubmitting} className="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400">
+                                {isSubmitting ? 'جاري التسجيل...' : 'تأكيد'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+             );
+        };
+        
+        const ReportModal = ({ loggedInEmployee, onClose, showAlert }) => {
+            const [month, setMonth] = useState(new Date().getMonth());
+            const [year, setYear] = useState(new Date().getFullYear());
+            const [records, setRecords] = useState([]);
+            const [loading, setLoading] = useState(false);
 
-             function exportReportAsPDF() {
-                const month = reportMonthSelect.options[reportMonthSelect.selectedIndex].text;
-                const year = reportYearSelect.value;
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
+            useEffect(() => {
+                handleViewReport(); // Load current month's report on open
+            }, []);
 
-                doc.setFontSize(18);
-                doc.text(`Monthly Report: ${month} ${year}`, 105, 20, { align: 'center' });
-                doc.setFontSize(12);
-                doc.text(`Employee: ${recognizedEmployee.name}`, 20, 30);
-                
-                const tableData = currentReportData.flatMap(record => {
-                    return record.entries.map(entry => [
-                        new Date(record.date).toLocaleDateString('en-CA'),
-                        entry.type === 'check-in' ? 'Check-in' : 'Check-out',
-                        entry.time,
-                        `${entry.location.lat}, ${entry.location.lon}`
-                    ]);
-                });
+            const handleViewReport = async () => {
+                setLoading(true);
+                try {
+                    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+                    const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+                    const data = await api.get(`timesheets?employeeName=${loggedInEmployee.name}&startDate=${startDate}&endDate=${endDate}`, showAlert);
+                    setRecords(data);
+                } catch (error) {
+                    // Error is handled by api layer
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+            const years = Array.from({length: 5}, (_, i) => new Date().getFullYear() - i);
+            const daysOfWeek = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-                doc.autoTable({
-                    head: [['Date', 'Type', 'Time', 'Location (GPS)']],
-                    body: tableData,
-                    startY: 40,
-                    styles: { halign: 'center' },
-                    headStyles: { fillColor: [79, 70, 229] },
-                });
+            return (
+                 <div className="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="modal-content bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] p-6 flex flex-col">
+                         <h2 className="text-xl font-semibold mb-4">سجلاتي الشهرية</h2>
+                         <div className="flex items-end gap-4 mb-4">
+                            <div className="flex-grow">
+                                <label htmlFor="report-month-select" className="block text-sm font-medium">الشهر:</label>
+                                <select id="report-month-select" value={month} onChange={e => setMonth(parseInt(e.target.value))} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex-grow">
+                                <label htmlFor="report-year-select" className="block text-sm font-medium">السنة:</label>
+                                <select id="report-year-select" value={year} onChange={e => setYear(parseInt(e.target.value))} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                            </div>
+                            <button onClick={handleViewReport} className="bg-blue-600 text-white px-4 py-2 rounded-lg">عرض</button>
+                         </div>
+                         <div className="flex-grow overflow-auto border-t pt-4">
+                            {loading ? <Loader message="جاري جلب السجلات..."/> : 
+                                records.length > 0 ? (
+                                    <table className="w-full text-sm text-center">
+                                        <thead className="bg-gray-100 sticky top-0">
+                                            <tr>
+                                                <th className="p-2 border">اليوم</th>
+                                                <th className="p-2 border">التاريخ</th>
+                                                <th className="p-2 border">الدخول</th>
+                                                <th className="p-2 border">الخروج</th>
+                                                <th className="p-2 border">إجمالي الساعات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {records.map(record => {
+                                                const recordDate = new Date(record.date);
+                                                const checkIns = record.entries.filter(e => e.type === 'check-in');
+                                                const checkOuts = record.entries.filter(e => e.type === 'check-out');
 
-                doc.save(`report_${recognizedEmployee.name}_${month}_${year}.pdf`);
-            }
+                                                return (
+                                                    <tr key={record._id} className="border-b">
+                                                        <td className="p-2 border">{daysOfWeek[recordDate.getUTCDay()]}</td>
+                                                        <td className="p-2 border">{recordDate.toLocaleDateString('ar-EG')}</td>
+                                                        <td className="p-2 border">
+                                                            {checkIns.map((entry, i) => <div key={i}>{entry.time} <a href={`https://www.google.com/maps?q=${entry.location.lat},${entry.location.lon}`} target="_blank" className="text-blue-500">📍</a></div>)}
+                                                        </td>
+                                                        <td className="p-2 border">
+                                                            {checkOuts.map((entry, i) => <div key={i}>{entry.time} <a href={`https://www.google.com/maps?q=${entry.location.lat},${entry.location.lon}`} target="_blank" className="text-blue-500">📍</a></div>)}
+                                                        </td>
+                                                        <td className="p-2 border font-bold">{record.totalHours.toFixed(2)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <p className="text-center text-gray-500">لا توجد سجلات لهذا الشهر.</p>
+                                )
+                            }
+                         </div>
+                         <div className="mt-auto flex justify-end pt-4">
+                            <button onClick={onClose} className="bg-gray-500 text-white px-4 py-2 rounded-lg">إغلاق</button>
+                         </div>
+                    </div>
+                 </div>
+            );
+        }
 
-            // --- Initial Load ---
-            async function startup() {
-                await loadFaceApiModelsInBackground();
-                loadingOverlay.classList.add('hidden');
-                
-                logoutBtn.addEventListener('click', handleLogout);
-                recordEntryBtn.addEventListener('click', handleRecordEntryClick);
-                pinForm.addEventListener('submit', handlePinVerification);
-                viewReportBtn.addEventListener('click', viewMonthlyReport);
-                exportPdfBtn.addEventListener('click', exportReportAsPDF);
-                cancelVerificationBtn.addEventListener('click', () => {
-                    stopVideo();
-                    verificationModal.classList.add('hidden');
-                });
-                confirmVerificationBtn.addEventListener('click', handleConfirmVerification);
-                
-                setupPinInputs();
-                checkLoggedInState();
-            }
+        // --- Main App Controller ---
+        function App() {
+            const [view, setView] = useState('loading'); // loading, face, pin, main
+            const [recognizedEmployee, setRecognizedEmployee] = useState(null);
+            const [loggedInEmployee, setLoggedInEmployee] = useState(null);
+            const [alert, setAlert] = useState({ show: false, message: '', isSuccess: false });
+            
+            useEffect(() => {
+                async function loadModels() {
+                     try {
+                        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                        await Promise.all([
+                            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                        ]);
+                        setView('face');
+                    } catch (error) {
+                        setAlert({ show: true, message: 'فشل تحميل نماذج التعرف على الوجه. الرجاء تحديث الصفحة.' });
+                    }
+                }
+                loadModels();
+            }, []);
 
-            // --- Call Startup ---
-            startup();
-        });
+            useEffect(() => {
+                if (recognizedEmployee) setView('pin');
+            }, [recognizedEmployee]);
+
+            useEffect(() => {
+                const storedEmployee = localStorage.getItem('loggedInEmployee');
+                if(storedEmployee) {
+                    setLoggedInEmployee(JSON.parse(storedEmployee));
+                }
+            }, []);
+
+            useEffect(() => {
+                if (loggedInEmployee) {
+                    localStorage.setItem('loggedInEmployee', JSON.stringify(loggedInEmployee));
+                    setView('main');
+                } else {
+                     localStorage.removeItem('loggedInEmployee');
+                }
+            }, [loggedInEmployee]);
+
+            const showAlertWithState = (message, isSuccess = false) => {
+                setAlert({ show: true, message, isSuccess });
+            };
+
+            const handleLogout = () => {
+                setLoggedInEmployee(null);
+                setRecognizedEmployee(null);
+                setView('face');
+            };
+
+            const renderView = () => {
+                switch(view) {
+                    case 'loading':
+                        return <Loader message="جاري تحميل النظام..." />;
+                    case 'face':
+                        return <FaceRecognitionView setRecognizedEmployee={setRecognizedEmployee} showAlert={showAlertWithState} />;
+                    case 'pin':
+                        return <PinView recognizedEmployee={recognizedEmployee} setLoggedInEmployee={setLoggedInEmployee} showAlert={showAlertWithState} />;
+                    case 'main':
+                        return <MainAppView loggedInEmployee={loggedInEmployee} onLogout={handleLogout} showAlert={showAlertWithState} />;
+                    default:
+                        return <Loader message="جاري تحميل النظام..." />;
+                }
+            };
+            
+            return (
+                <div>
+                    {alert.show && <AlertModal message={alert.message} isSuccess={alert.isSuccess} onClose={() => setAlert({ show: false })} />}
+                    {renderView()}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<App />);
     </script>
-
 </body>
 </html>
 

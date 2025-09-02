@@ -6,26 +6,27 @@ const {
     getUserProfile,
     updateUserProfile,
     getUsers,
-    deleteUser
-} = require('../controllers/user.controller');
-const { protect } = require('../middleware/auth.middleware');
+    deleteUser,
+    updateUser,
+} = require('../controllers/user.controller.js');
+const { protect } = require('../middleware/auth.middleware.js');
 
-// تسجيل مستخدم جديد
+// Routes for public access (registration and login)
 router.post('/register', registerUser);
-
-// تسجيل الدخول
 router.post('/login', loginUser);
 
-// جلب ملف التعريف (محمي)
-router.get('/profile', protect, getUserProfile);
+// Routes for the logged-in user's own profile
+router.route('/profile')
+    .get(protect, getUserProfile)
+    .put(protect, updateUserProfile);
 
-// تحديث ملف التعريف (محمي)
-router.put('/profile', protect, updateUserProfile);
+// Admin-only routes for managing all users
+router.route('/')
+    .get(protect, getUsers);
 
-// الحصول على جميع المستخدمين (محمي للمدير)
-router.get('/', protect, getUsers);
-
-// حذف مستخدم (محمي للمدير)
-router.delete('/:id', protect, deleteUser);
+router.route('/:id')
+    .delete(protect, deleteUser)
+    .put(protect, updateUser);
 
 module.exports = router;
+
