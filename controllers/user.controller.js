@@ -4,7 +4,7 @@ const generateToken = require('../utils/generateToken.js');
 
 // @desc    Register a new user (admin)
 // @route   POST /api/users/register
-// @access  Public
+// @access  Public (should be protected in a real-world scenario after the first admin is created)
 const registerUser = asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -58,21 +58,16 @@ const loginUser = asyncHandler(async (req, res) => {
 // @route   GET /api/users/profile
 // @access  Private
 const getUserProfile = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user._id);
-
-    if (user) {
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-        });
-    } else {
-        res.status(404);
-        throw new Error('المستخدم غير موجود');
-    }
+    res.json({
+        _id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+    });
 });
 
-// Other functions...
+// @desc    Update user profile (self)
+// @route   PUT /api/users/profile
+// @access  Private
 const updateUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
     if (user) {
@@ -93,11 +88,18 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     }
 });
 
+
+// @desc    Get all users (for admin)
+// @route   GET /api/users
+// @access  Private
 const getUsers = asyncHandler(async (req, res) => {
     const users = await User.find({}).select('-password');
     res.json(users);
 });
 
+// @desc    Delete user (for admin)
+// @route   DELETE /api/users/:id
+// @access  Private
 const deleteUser = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id);
     if (user) {
@@ -109,10 +111,14 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Update user (for admin)
+// @route   PUT /api/users/:id
+// @access  Private
 const updateUser = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id);
     if (user) {
         user.name = req.body.name || user.name;
+        // Optionally update password if provided
         if (req.body.password) {
             user.password = req.body.password;
         }
@@ -127,7 +133,6 @@ const updateUser = asyncHandler(async (req, res) => {
         throw new Error('المستخدم غير موجود');
     }
 });
-
 
 module.exports = {
     registerUser,
