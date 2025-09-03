@@ -8,7 +8,8 @@ const {
     updateEmployee,
     registerFace,
     deleteEmployee,
-    setEmployeePin
+    setEmployeePin,
+    loginEmployee
 } = require('../controllers/employee.controller.js');
 const { protect } = require('../middleware/auth.middleware.js');
 
@@ -22,6 +23,9 @@ router.get('/face-login-data', getAllEmployeesForFaceLogin);
 
 // مسار للتحقق من رمز PIN الخاص بالموظف
 router.post('/verify-pin', verifyEmployeePin);
+
+// مسار لتسجيل دخول الموظف (للنسخ القديمة من التطبيق)
+router.post('/login', loginEmployee);
 
 
 // ======================================================

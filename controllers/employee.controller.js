@@ -7,19 +7,13 @@ const faceapi = require('face-api.js');
 // @route   GET /api/employees
 // @access  Private
 const getEmployees = asyncHandler(async (req, res) => {
-    // We fetch all fields to accurately determine the face descriptor status
     const employees = await Employee.find({});
     
-    // Manually map the response to ensure hasFaceDescriptor is correct and to exclude sensitive data
-    const employeesWithStatus = employees.map((emp) => {
-        // This is a direct and reliable check, avoiding potential issues with virtual properties
-        const hasDescriptor = emp.faceDescriptor && emp.faceDescriptor.length > 0;
-        return {
-            _id: emp._id,
-            name: emp.name,
-            hasFaceDescriptor: hasDescriptor,
-        };
-    });
+    const employeesWithStatus = employees.map((emp) => ({
+        _id: emp._id,
+        name: emp.name,
+        hasFaceDescriptor: emp.faceDescriptor && emp.faceDescriptor.length > 0,
+    }));
 
     res.json(employeesWithStatus);
 });
@@ -49,7 +43,7 @@ const verifyEmployeePin = asyncHandler(async (req, res) => {
         res.json({
             _id: employee._id,
             name: employee.name,
-            faceDescriptor: employee.faceDescriptor // إرسال البصمة لتطبيق الموظف
+            faceDescriptor: employee.faceDescriptor 
         });
     } else {
         res.status(401);
@@ -83,26 +77,7 @@ const createEmployee = asyncHandler(async (req, res) => {
 // @access  Private
 const registerFace = asyncHandler(async (req, res) => {
     const { employeeId, descriptor } = req.body;
-
-    // التحقق من تفرد بصمة الوجه
-    const existingEmployees = await Employee.find({ 
-        faceDescriptor: { $exists: true, $ne: [] },
-        _id: { $ne: employeeId } // استثناء الموظف الحالي من التحقق
-    });
-
-    if (existingEmployees.length > 0) {
-        const labeledFaceDescriptors = existingEmployees.map(e => 
-            new faceapi.LabeledFaceDescriptors(e.name, [new Float32Array(e.faceDescriptor)])
-        );
-        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
-        const bestMatch = faceMatcher.findBestMatch(new Float32Array(descriptor));
-
-        if (bestMatch.label !== 'unknown') {
-             res.status(400);
-             throw new Error(`هذا الوجه مسجل بالفعل للموظف: ${bestMatch.label}`);
-        }
-    }
-
+    
     const employee = await Employee.findById(employeeId);
     if (!employee) {
         res.status(404);
@@ -142,9 +117,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
     const employee = await Employee.findById(req.params.id);
 
     if (employee) {
-        // حذف سجلات الدوام المرتبطة بالموظف
         await Timesheet.deleteMany({ employeeName: employee.name });
-        // حذف الموظف نفسه
         await employee.deleteOne();
         res.json({ message: 'تم حذف الموظف بنجاح' });
     } else {
@@ -157,7 +130,6 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 // @route   PUT /api/employees/:id
 // @access  Private
 const updateEmployee = asyncHandler(async (req, res) => {
-    // يمكن توسيع هذه الدالة لاحقًا لتحديث اسم الموظف، إلخ.
     res.json({ message: 'Employee updated' });
 });
 
@@ -177,7 +149,7 @@ const loginEmployee = asyncHandler(async (req, res) => {
         res.json({
             _id: employee._id,
             name: employee.name,
-            hasFaceDescriptor: employee.hasFaceDescriptor
+            hasFaceDescriptor: employee.faceDescriptor && employee.faceDescriptor.length > 0,
         });
     } else {
         res.status(404);

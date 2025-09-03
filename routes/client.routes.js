@@ -8,11 +8,16 @@ const {
 const { protect } = require('../middleware/auth.middleware.js');
 
 // -----------------------------------------------------------------------------
-// تم الآن تأمين جميع هذه المسارات. لا يمكن لأي شخص إضافة، عرض، أو حذف
-// العملاء إلا إذا كان مديرًا وقام بتسجيل الدخول بنجاح.
+// تم الآن تأمين جميع المسارات المتعلقة بالعملاء.
+// لا يمكن لأي شخص التعامل مع هذه البيانات إلا إذا كان مديرًا مصرحًا له.
 // -----------------------------------------------------------------------------
 
-router.route('/').get(protect, getClients).post(protect, createClient);
-router.route('/:id').delete(protect, deleteClient);
+router.route('/')
+    .get(protect, getClients)
+    .post(protect, createClient);
+
+router.route('/:id')
+    .delete(protect, deleteClient);
 
 module.exports = router;
+
