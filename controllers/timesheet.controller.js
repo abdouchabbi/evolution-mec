@@ -3,11 +3,11 @@ const Timesheet = require('../models/timesheet.model.js');
 const Employee = require('../models/employee.model.js');
 const faceapi = require('face-api.js');
 
-// Helper to fetch location name from coordinates
+// Helper to fetch and format a concise location name from coordinates
 const getLocationName = async (lat, lon) => {
     try {
-        // Using Nominatim's public API with a required User-Agent header
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=ar,en`, {
+        // Using Nominatim's public API with addressdetails to get structured data
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=it,en&addressdetails=1`, {
             headers: {
                 'User-Agent': 'EvolutionMECApp/1.0 (contact: your-email@example.com)'
             }
@@ -15,17 +15,47 @@ const getLocationName = async (lat, lon) => {
 
         if (!response.ok) {
             console.error(`Geocoding service returned status: ${response.status}`);
-            return 'Unknown Location';
+            return `${lat.toFixed(4)}, ${lon.toFixed(4)}`; // Fallback to coordinates
         }
 
         const data = await response.json();
-        return data.display_name || 'Unknown Location';
+
+        if (data && data.address) {
+            const address = data.address;
+            const road = address.road || '';
+            const locality = address.village || address.town || address.city || '';
+            
+            let provinceCode = '';
+            // Use the reliable ISO code to get the province abbreviation (e.g., IT-PR -> PR)
+            if (address['ISO3166-2-lvl6']) {
+                provinceCode = address['ISO3166-2-lvl6'].split('-')[1];
+            } else if (address.county) {
+                // Fallback for cases where ISO code is not present
+                provinceCode = address.county.substring(0, 2).toUpperCase();
+            }
+
+            let parts = [];
+            if (road) parts.push(road);
+            if (locality) parts.push(locality);
+            
+            let mainPart = parts.join(', ');
+            if (provinceCode) {
+                mainPart += ` (${provinceCode})`;
+            }
+
+            // Return the constructed string or fallback to the full display name
+            return mainPart || data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        }
+
+        // Fallback if no address object is found
+        return data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 
     } catch (error) {
         console.error("Geocoding Fetch Error:", error);
         return 'Failed to fetch location';
     }
 };
+
 
 // @desc    Get timesheet records for an employee within a date range
 const getTimesheets = asyncHandler(async (req, res) => {

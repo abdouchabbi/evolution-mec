@@ -92,6 +92,12 @@
                 </div>
             </div>
         </main>
+        <footer class="mt-6">
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <h2 class="text-xl font-semibold mb-4">تقارير ساعات العمل</h2>
+                <button id="open-reports-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">عرض تقاريري</button>
+            </div>
+        </footer>
     </div>
 
     <!-- Modals -->
@@ -126,6 +132,29 @@
             <div class="flex gap-4">
                 <button id="verification-cancel-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">إلغاء</button>
                 <button id="verification-confirm-btn" disabled class="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400">تأكيد</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="reports-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-2xl h-[90vh] p-6 flex flex-col">
+            <h2 class="text-xl font-semibold mb-4 text-center">تقارير ساعات العمل</h2>
+            <div class="flex items-end gap-4 mb-4">
+                <div class="flex-grow">
+                    <label for="reports-month-select" class="block text-sm font-medium">الشهر:</label>
+                    <select id="reports-month-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                </div>
+                <div class="flex-grow">
+                    <label for="reports-year-select" class="block text-sm font-medium">السنة:</label>
+                    <select id="reports-year-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                </div>
+                <button id="reports-view-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg">عرض</button>
+            </div>
+            <div id="report-content" class="flex-grow overflow-auto border-t pt-4">
+                <!-- Report content will be injected here -->
+            </div>
+            <div class="mt-auto flex justify-end pt-4 border-t">
+                <button id="reports-close-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg">إغلاق</button>
             </div>
         </div>
     </div>
@@ -190,6 +219,15 @@
                     descriptionInput: document.getElementById('description-input'),
                     cancelBtn: document.getElementById('verification-cancel-btn'),
                     confirmBtn: document.getElementById('verification-confirm-btn'),
+                },
+                reports: {
+                    modal: document.getElementById('reports-modal'),
+                    openBtn: document.getElementById('open-reports-btn'),
+                    closeBtn: document.getElementById('reports-close-btn'),
+                    monthSelect: document.getElementById('reports-month-select'),
+                    yearSelect: document.getElementById('reports-year-select'),
+                    viewBtn: document.getElementById('reports-view-btn'),
+                    content: document.getElementById('report-content'),
                 }
             };
 
@@ -284,7 +322,7 @@
                                 renderPinView();
                                 switchView('pin-view');
                             } else {
-                                elements.face.status.textContent = "لم يتم التعرف عليك.";
+                                elements.face.status.textContent = "جاري البحث، يرجى الانتظار...";
                             }
                         } else {
                             elements.face.status.textContent = "جاري البحث عن وجه...";
@@ -328,42 +366,34 @@
             });
             
             // --- Verification Modal Logic ---
+            function startVerificationInterval() {
+                clearInterval(verificationInterval);
+                verificationInterval = setInterval(async () => {
+                    if (!elements.verification.modal.classList.contains('active')) return clearInterval(verificationInterval);
+                    const detection = await faceapi.detectSingleFace(elements.verification.video, new faceapi.TinyFaceDetectorOptions());
+                    if (detection) {
+                        elements.verification.status.textContent = "تم التعرف عليك. جاهز للتأكيد.";
+                        elements.verification.confirmBtn.disabled = false;
+                    } else {
+                        elements.verification.status.textContent = "الرجاء تثبيت الوجه أمام الكاميرا";
+                        elements.verification.confirmBtn.disabled = true;
+                    }
+                }, 1500);
+            }
+
             async function showVerificationModal() {
                 elements.verification.title.textContent = `التحقق لـ (${elements.main.actionBtn.textContent.trim()})`;
                 elements.verification.confirmBtn.disabled = true;
                 elements.verification.status.textContent = "الرجاء توجيه الوجه للكاميرا...";
                 elements.verification.modal.classList.add('active');
-
                 try {
-                    state.projects = await api.get('projects');
+                    if (state.projects.length === 0) state.projects = await api.get('projects');
                     elements.verification.projectSelect.innerHTML = '<option value="">-- اختر مشروع --</option>';
-                    state.projects.forEach(p => {
-                        elements.verification.projectSelect.innerHTML += `<option value="${p.name}">${p.name}</option>`;
-                    });
-
+                    state.projects.forEach(p => elements.verification.projectSelect.innerHTML += `<option value="${p.name}">${p.name}</option>`);
                     const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
                     currentVideoStream = stream;
                     elements.verification.video.srcObject = stream;
-                    
-                    const faceMatcher = new faceapi.FaceMatcher([new Float32Array(state.loggedInEmployee.faceDescriptor)], 0.5);
-
-                    verificationInterval = setInterval(async () => {
-                        const detection = await faceapi.detectSingleFace(elements.verification.video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                        if (detection) {
-                            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-                            if (bestMatch.label !== 'unknown') {
-                                elements.verification.status.textContent = "تم التعرف عليك. جاهز للتأكيد.";
-                                elements.verification.confirmBtn.disabled = false;
-                            } else {
-                                elements.verification.status.textContent = "الوجه غير مطابق.";
-                                elements.verification.confirmBtn.disabled = true;
-                            }
-                        } else {
-                            elements.verification.status.textContent = "لم يتم اكتشاف وجه.";
-                            elements.verification.confirmBtn.disabled = true;
-                        }
-                    }, 1000);
-
+                    startVerificationInterval();
                 } catch(err) {
                     showAlert("لا يمكن الوصول للكاميرا.");
                     hideVerificationModal();
@@ -378,15 +408,27 @@
                 elements.verification.projectSelect.value = '';
             }
 
-            elements.main.actionBtn.addEventListener('click', showVerificationModal);
-            elements.verification.cancelBtn.addEventListener('click', hideVerificationModal);
-            elements.verification.confirmBtn.addEventListener('click', async () => {
-                elements.verification.confirmBtn.disabled = true;
-                elements.verification.status.textContent = "جاري التسجيل...";
-                
-                const detection = await faceapi.detectSingleFace(elements.verification.video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                if (!detection) return showAlert("فشل التقاط صورة الوجه.");
+            async function getFaceDetectionWithRetries(videoElement, retries = 3, delay = 200) {
+                for (let i = 0; i < retries; i++) {
+                    const detection = await faceapi.detectSingleFace(videoElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                    if (detection) return detection;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+                return null;
+            }
 
+            elements.verification.confirmBtn.addEventListener('click', async () => {
+                clearInterval(verificationInterval);
+                elements.verification.confirmBtn.disabled = true;
+                elements.verification.status.textContent = "جاري المعالجة، يرجى الثبات...";
+                const detection = await getFaceDetectionWithRetries(elements.verification.video);
+                if (!detection) {
+                    showAlert("فشل التقاط صورة الوجه. الرجاء التأكد من ثبات الوجه أمام الكاميرا.");
+                    elements.verification.confirmBtn.disabled = false;
+                    startVerificationInterval();
+                    return;
+                }
+                elements.verification.status.textContent = "تم التقاط الصورة، جاري تحديد الموقع...";
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const now = new Date();
                     const entryData = {
@@ -398,7 +440,6 @@
                         project: elements.verification.projectSelect.value,
                         description: elements.verification.descriptionInput.value,
                     };
-                    
                     try {
                         await api.post('timesheets/entry', entryData);
                         showAlert("تم التسجيل بنجاح!", true);
@@ -407,11 +448,91 @@
                         renderMainDashboard();
                     }
                 }, () => {
-                    showAlert("لا يمكن الحصول على الموقع.");
+                    showAlert("لا يمكن الحصول على الموقع. الرجاء تفعيل خدمات الموقع والمحاولة مرة أخرى.");
                     hideVerificationModal();
                 }, { enableHighAccuracy: true });
             });
 
+            // --- Reports Modal Logic ---
+            function getMonthDateRange(year, month) {
+                const startDate = new Date(year, month, 1);
+                const endDate = new Date(year, month + 1, 0); // Last day of the month
+                const formatDate = (date) => date.toISOString().split('T')[0];
+                return { startDate: formatDate(startDate), endDate: formatDate(endDate) };
+            }
+
+            function getWeekNumber(d) {
+                d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+                var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                return weekNo;
+            }
+
+            async function generateEmployeeReport() {
+                elements.reports.content.innerHTML = '<div class="loader"></div>';
+                const year = elements.reports.yearSelect.value;
+                const month = elements.reports.monthSelect.value;
+                const { startDate, endDate } = getMonthDateRange(year, month);
+
+                try {
+                    const records = await api.get(`timesheets?employeeName=${state.loggedInEmployee.name}&startDate=${startDate}&endDate=${endDate}`);
+                    if (records.length === 0) {
+                        elements.reports.content.innerHTML = '<p class="text-center text-gray-500">لا توجد سجلات لهذا الشهر.</p>';
+                        return;
+                    }
+
+                    let monthlyTotal = 0;
+                    const weeklyTotals = {};
+
+                    records.forEach(record => {
+                        monthlyTotal += record.totalHours;
+                        const weekNum = getWeekNumber(new Date(record.date));
+                        weeklyTotals[weekNum] = (weeklyTotals[weekNum] || 0) + record.totalHours;
+                    });
+                    
+                    let reportHtml = `
+                        <div class="bg-blue-50 p-4 rounded-lg mb-4 text-center">
+                            <p class="text-gray-600">إجمالي ساعات الشهر</p>
+                            <p class="font-bold text-3xl text-blue-800">${monthlyTotal.toFixed(2)}</p>
+                        </div>
+                        <h3 class="font-semibold mb-2">الملخص الأسبوعي</h3>
+                        <ul class="space-y-2">`;
+
+                    Object.keys(weeklyTotals).sort().forEach(week => {
+                        reportHtml += `
+                            <li class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <span class="font-bold">الأسبوع ${week}</span>
+                                <span class="text-lg">${weeklyTotals[week].toFixed(2)} ساعة</span>
+                            </li>`;
+                    });
+
+                    reportHtml += `</ul>`;
+                    elements.reports.content.innerHTML = reportHtml;
+
+                } catch (error) {
+                    elements.reports.content.innerHTML = '<p class="text-center text-red-500">فشل في جلب التقرير.</p>';
+                }
+            }
+            
+            elements.reports.openBtn.addEventListener('click', () => {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth();
+                const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+                
+                elements.reports.monthSelect.innerHTML = months.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+                elements.reports.yearSelect.innerHTML = '';
+                for (let y = currentYear; y >= currentYear - 3; y--) {
+                    elements.reports.yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+                }
+
+                elements.reports.modal.classList.add('active');
+                generateEmployeeReport();
+            });
+
+            elements.reports.closeBtn.addEventListener('click', () => elements.reports.modal.classList.remove('active'));
+            elements.reports.viewBtn.addEventListener('click', generateEmployeeReport);
 
             // --- Initialization ---
             async function init() {
@@ -425,11 +546,13 @@
                     faceApiModelsLoaded = true;
                     switchView('face-recognition-view');
                     startFaceRecognition();
-
                 } catch (error) {
                     showAlert("فشل تحميل نماذج التعرف على الوجه. الرجاء تحديث الصفحة.");
                 }
             }
+
+            elements.main.actionBtn.addEventListener('click', showVerificationModal);
+            elements.verification.cancelBtn.addEventListener('click', hideVerificationModal);
             
             elements.main.logoutBtn.addEventListener('click', () => {
                 state.loggedInEmployee = null;
