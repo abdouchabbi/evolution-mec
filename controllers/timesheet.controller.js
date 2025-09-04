@@ -6,13 +6,23 @@ const faceapi = require('face-api.js');
 // Helper to fetch location name from coordinates
 const getLocationName = async (lat, lon) => {
     try {
-        // Using Nominatim's public API for reverse geocoding
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=ar,en`);
-        if (!response.ok) return 'Unknown Location';
+        // Using Nominatim's public API with a required User-Agent header
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=ar,en`, {
+            headers: {
+                'User-Agent': 'EvolutionMECApp/1.0 (contact: your-email@example.com)'
+            }
+        });
+
+        if (!response.ok) {
+            console.error(`Geocoding service returned status: ${response.status}`);
+            return 'Unknown Location';
+        }
+
         const data = await response.json();
         return data.display_name || 'Unknown Location';
+
     } catch (error) {
-        console.error("Geocoding Error:", error);
+        console.error("Geocoding Fetch Error:", error);
         return 'Failed to fetch location';
     }
 };
@@ -147,4 +157,3 @@ module.exports = {
     createOrUpdateEntry,
     updateTimesheet,
 };
-

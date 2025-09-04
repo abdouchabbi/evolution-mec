@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
         body { font-family: 'Cairo', sans-serif; }
@@ -35,7 +40,7 @@
                 top: 0;
                 width: 100%;
                 margin: 0;
-                padding: 2rem; /* Add some padding for printing */
+                padding: 2rem;
                 background-color: white;
             }
             .no-print {
@@ -51,7 +56,6 @@
         <p class="text-white text-lg mt-4">جاري تحميل النظام...</p>
     </div>
 
-    <!-- Login View -->
     <div id="login-view" class="flex items-center justify-center min-h-screen bg-gray-200">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
             <h2 class="text-2xl font-bold text-center text-gray-700">تسجيل دخول المدير</h2>
@@ -73,9 +77,7 @@
         </div>
     </div>
 
-    <!-- Main App View -->
     <div id="main-app-view" class="flex h-screen bg-gray-100 hidden">
-        <!-- Sidebar -->
         <aside class="w-64 bg-gray-800 text-white flex-col no-print hidden md:flex">
             <div class="h-20 flex items-center justify-center text-2xl font-bold border-b border-gray-700">
                 لوحة التحكم
@@ -110,10 +112,8 @@
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="flex-1 p-6 overflow-auto">
             
-            <!-- Dashboard Section -->
             <section id="dashboard-section">
                  <h1 class="text-3xl font-bold text-gray-800 mb-6">لوحة التحكم الرئيسية</h1>
                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -147,7 +147,6 @@
                 </div>
             </section>
             
-            <!-- Employees Section -->
             <section id="employees-section" class="hidden">
                  <h1 class="text-3xl font-bold text-gray-800 mb-6">إدارة الموظفين</h1>
                  <div class="bg-white p-6 rounded-lg shadow-md">
@@ -170,7 +169,6 @@
                  </div>
             </section>
             
-            <!-- Clients and Projects Section -->
             <section id="clients-section" class="hidden">
                 <h1 class="text-3xl font-bold text-gray-800 mb-6">إدارة العملاء والمشاريع</h1>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -208,7 +206,6 @@
                 </div>
             </section>
             
-            <!-- Reports Section -->
             <section id="reports-section" class="hidden">
                  <h1 class="text-3xl font-bold text-gray-800 mb-6">التقارير والفواتير</h1>
                  <div class="bg-white p-6 rounded-lg shadow-md">
@@ -227,7 +224,11 @@
                         </div>
                         <div class="flex gap-2">
                             <button id="generate-report-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg w-full">إنشاء تقرير</button>
-                            <button id="print-report-btn" class="bg-gray-600 text-white px-4 py-2 rounded-lg w-auto hidden">طباعة</button>
+                            <div id="report-actions" class="flex gap-2 hidden">
+                                <button id="print-report-btn" class="bg-gray-600 text-white px-4 py-2 rounded-lg">طباعة</button>
+                                <button id="export-png-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg">PNG</button>
+                                <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg">PDF</button>
+                            </div>
                         </div>
                     </div>
                     <div id="report-output">
@@ -236,11 +237,9 @@
                  </div>
             </section>
 
-            <!-- Users Section -->
             <section id="users-section" class="hidden">
                 <h1 class="text-3xl font-bold text-gray-800 mb-6">إدارة المستخدمين (المدراء)</h1>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Add New User -->
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h2 class="text-xl font-bold mb-4">إضافة مدير جديد</h2>
                         <form id="add-user-form" class="space-y-4">
@@ -259,7 +258,6 @@
                             <button type="submit" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">إضافة مستخدم</button>
                         </form>
                     </div>
-                    <!-- Change My Password -->
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h2 class="text-xl font-bold mb-4">تغيير كلمة المرور الخاصة بي</h2>
                         <form id="change-password-form" class="space-y-4">
@@ -288,7 +286,6 @@
         </main>
     </div>
     
-    <!-- Modals -->
     <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-50 p-4">
         <div id="alert-modal-content" class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md transform scale-95 opacity-0"></div>
     </div>
@@ -816,8 +813,8 @@
             const reportMonthSelect = document.getElementById('report-month-select');
             const reportYearSelect = document.getElementById('report-year-select');
             const generateReportBtn = document.getElementById('generate-report-btn');
-            const printReportBtn = document.getElementById('print-report-btn');
             const reportOutput = document.getElementById('report-output');
+            const reportActions = document.getElementById('report-actions');
             const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
             async function initReportsView() {
@@ -852,7 +849,7 @@
                 
                 try {
                     reportOutput.innerHTML = '<div class="loader"></div>';
-                    printReportBtn.classList.add('hidden');
+                    reportActions.classList.add('hidden');
                     const records = await api.get(`timesheets?employeeName=${employeeName.toUpperCase()}&startDate=${startDate}&endDate=${endDate}`);
                     displayReport(records, employeeName, months[month], year);
                 } catch(error) {
@@ -863,44 +860,85 @@
             function displayReport(records, employeeName, monthName, year) {
                 if (records.length === 0) {
                     reportOutput.innerHTML = '<p class="text-center text-gray-500 py-8">لا توجد سجلات لهذا الموظف في الفترة المحددة.</p>';
-                    printReportBtn.classList.add('hidden');
+                    reportActions.classList.add('hidden');
                     return;
                 }
                 
                 const daysOfWeek = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-                
+                let totalRegular = 0;
+                let totalOvertime = 0;
+
                 let tableRows = records.map(record => {
+                    totalRegular += record.regularHours || 0;
+                    totalOvertime += record.overtimeHours || 0;
                     const recordDate = new Date(record.date);
+
                     const checkIns = record.entries.filter(e => e.type === 'check-in');
                     const checkOuts = record.entries.filter(e => e.type === 'check-out');
+
+                    const e1 = checkIns[0] ? checkIns[0].time : '-';
+                    const u1 = checkOuts[0] ? checkOuts[0].time : '-';
+                    const e2 = checkIns[1] ? checkIns[1].time : '-';
+                    const u2 = checkOuts[1] ? checkOuts[1].time : '-';
+
+                    const project = record.entries[0]?.project || 'غير محدد';
+                    
+                    const locationsHtml = record.entries.map(entry => {
+                        const locationLink = (entry.location && entry.location.lat) 
+                            ? `<a href="http://googleusercontent.com/maps/google.com/3{entry.location.lat},${entry.location.lon}" target="_blank" class="text-blue-500" title="عرض على الخريطة">📍</a>` 
+                            : '';
+                        
+                        let locationText = 'موقع غير مسجل';
+                        if (entry.location) {
+                            // Use name if it's valid, otherwise fallback to coordinates
+                            if (entry.location.name && !['Unknown Location', 'Failed to fetch location'].includes(entry.location.name)) {
+                                locationText = entry.location.name;
+                            } else if (entry.location.lat) {
+                                locationText = `${entry.location.lat.toFixed(4)}, ${entry.location.lon.toFixed(4)}`;
+                            }
+                        }
+
+                        return `<div class="text-xs whitespace-nowrap">${entry.time} - ${locationText} ${locationLink}</div>`;
+                    }).join('');
+
                     return `
-                        <tr class="border-b">
+                        <tr class="border-b text-center text-xs">
+                            <td class="p-2 border">${recordDate.toLocaleDateString('fr-CA')}</td>
                             <td class="p-2 border">${daysOfWeek[recordDate.getUTCDay()]}</td>
-                            <td class="p-2 border">${recordDate.toLocaleDateString('ar-EG')}</td>
-                            <td class="p-2 border">
-                                ${checkIns.map(e => `<div>${e.time} - ${e.location.name || 'N/A'}</div>`).join('') || '-'}
-                            </td>
-                            <td class="p-2 border">
-                                ${checkOuts.map(e => `<div>${e.time} - ${e.location.name || 'N/A'}</div>`).join('') || '-'}
-                            </td>
-                            <td class="p-2 border font-bold">${record.totalHours.toFixed(2)}</td>
+                            <td class="p-2 border">${project}</td>
+                            <td class="p-2 border">${locationsHtml}</td>
+                            <td class="p-2 border">${e1}</td>
+                            <td class="p-2 border">${u1}</td>
+                            <td class="p-2 border">${e2}</td>
+                            <td class="p-2 border">${u2}</td>
+                            <td class="p-2 border font-bold">${(record.regularHours || 0).toFixed(2)}</td>
+                            <td class="p-2 border font-bold text-red-500">${(record.overtimeHours || 0).toFixed(2)}</td>
+                            <td class="p-2 border font-bold bg-gray-100">${(record.totalHours || 0).toFixed(2)}</td>
                         </tr>
                     `;
                 }).join('');
 
                 reportOutput.innerHTML = `
-                    <div class="printable-area p-4 border rounded-lg bg-white">
-                        <h3 class="text-xl font-bold mb-2">تقرير الحضور لشهر ${monthName} ${year}</h3>
-                        <p class="mb-4"><strong>الموظف:</strong> ${employeeName}</p>
+                    <div class="printable-area p-4 border rounded-lg bg-white" id="report-to-export">
+                        <div class="text-center mb-4">
+                            <h3 class="text-xl font-bold">Riepilogo Mensile (${monthName} ${year})</h3>
+                            <p><strong>Dipendente:</strong> ${employeeName}</p>
+                        </div>
                         <div class="overflow-auto">
-                            <table class="w-full text-sm text-center">
-                                <thead class="bg-gray-100">
+                            <table class="w-full text-sm" id="report-table">
+                                <thead class="bg-gray-200 text-xs">
                                     <tr>
-                                        <th class="p-2 border">اليوم</th>
-                                        <th class="p-2 border">التاريخ</th>
-                                        <th class="p-2 border">الدخول</th>
-                                        <th class="p-2 border">الخروج</th>
-                                        <th class="p-2 border">إجمالي الساعات</th>
+                                        <th class="p-2 border">Data</th>
+                                        <th class="p-2 border">Giorno</th>
+                                        <th class="p-2 border">Commessa</th>
+                                        <th class="p-2 border">Luogo (GPS)</th>
+                                        <th class="p-2 border">E</th>
+                                        <th class="p-2 border">U</th>
+                                        <th class="p-2 border">E</th>
+                                        <th class="p-2 border">U</th>
+                                        <th class="p-2 border">Ord.</th>
+                                        <th class="p-2 border">Straord.</th>
+                                        <th class="p-2 border">Totale</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -908,12 +946,45 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="mt-4 p-4 bg-gray-50 rounded-lg text-right font-bold">
+                            <p class="text-lg">Ore Ordinarie Totali: <span class="text-blue-700">${totalRegular.toFixed(2)}</span></p>
+                            <p class="text-lg text-red-700">Ore Straordinario Totali: <span class="text-red-700">${totalOvertime.toFixed(2)}</span></p>
+                        </div>
                     </div>
                 `;
-                printReportBtn.classList.remove('hidden');
+                reportActions.classList.remove('hidden');
+            }
+            
+            function handleExportPNG() {
+                const reportElement = document.getElementById('report-to-export');
+                if (reportElement) {
+                    html2canvas(reportElement).then(canvas => {
+                        const link = document.createElement('a');
+                        link.download = `report-${new Date().toISOString().slice(0, 10)}.png`;
+                        link.href = canvas.toDataURL();
+                        link.click();
+                    });
+                }
             }
 
-             // Placeholder for other sections
+            function handleExportPDF() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: "landscape" });
+                
+                const employeeName = document.getElementById('report-employee-select').value;
+                doc.text(`Riepilogo Mensile per: ${employeeName}`, 14, 20);
+                
+                doc.autoTable({ 
+                    html: '#report-table',
+                    startY: 30,
+                    theme: 'grid',
+                    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+                    styles: { font: 'helvetica', fontSize: 8 },
+                });
+
+                doc.save(`report-${employeeName}-${new Date().toISOString().slice(0, 10)}.pdf`);
+            }
+
             async function loadClientsAndProjectsData() { /* ... */ }
 
             // --- Initial Load ---
@@ -927,11 +998,14 @@
                 addUserForm.addEventListener('submit', handleAddUser);
                 changePasswordForm.addEventListener('submit', handleChangePassword);
                 generateReportBtn.addEventListener('click', generateReport);
-                printReportBtn.addEventListener('click', () => window.print());
                 savePinBtn.addEventListener('click', handleSetPin);
                 cancelPinBtn.addEventListener('click', hidePinModal);
                 editUserForm.addEventListener('submit', handleUpdateUser);
                 cancelEditUserBtn.addEventListener('click', hideEditUserModal);
+
+                document.getElementById('print-report-btn').addEventListener('click', () => window.print());
+                document.getElementById('export-png-btn').addEventListener('click', handleExportPNG);
+                document.getElementById('export-pdf-btn').addEventListener('click', handleExportPDF);
 
                 verifyTokenAndStartup();
             }
@@ -941,4 +1015,3 @@
     </script>
 </body>
 </html>
-
