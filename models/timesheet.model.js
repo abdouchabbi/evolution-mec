@@ -1,58 +1,33 @@
 const mongoose = require('mongoose');
 
 const entrySchema = new mongoose.Schema({
-    type: {
-        type: String,
-        enum: ['check-in', 'check-out'],
-        required: true,
+    type: { 
+        type: String, 
+        enum: ['check-in', 'check-out', 'break-start', 'break-end'], 
+        required: true 
     },
-    time: {
-        type: String, // HH:MM
-        required: true,
-    },
+    time: { type: String, required: true }, // Format 'HH:MM'
     location: {
         lat: Number,
         lon: Number,
-        name: String, // سيتم تخزين اسم الموقع هنا
+        name: { type: String }
     },
+    // تم نقل المشروع والوصف إلى مستوى الحركة لتتبع دقيق
+    project: { type: String },
+    description: { type: String }
 });
 
-const timesheetSchema = new mongoose.Schema({
-    employeeName: {
-        type: String,
-        required: true,
-        uppercase: true,
-    },
-    date: {
-        type: String, // YYYY-MM-DD
-        required: true,
-    },
-    project: {
-        type: String,
-    },
-    description: {
-        type: String,
-    },
+const TimesheetSchema = new mongoose.Schema({
+    employeeName: { type: String, required: true, uppercase: true },
+    date: { type: String, required: true }, // Format 'YYYY-MM-DD'
     entries: [entrySchema],
-    totalHours: {
-        type: Number,
-        default: 0,
-    },
-    regularHours: { // ساعات العمل العادية
-        type: Number,
-        default: 0
-    },
-    overtimeHours: { // ساعات العمل الإضافية
-        type: Number,
-        default: 0
-    }
-}, {
-    timestamps: true,
+    // تمت إزالة المشروع والوصف من هنا
+    totalHours: { type: Number, default: 0 }
 });
 
-timesheetSchema.index({ employeeName: 1, date: 1 }, { unique: true });
+TimesheetSchema.index({ employeeName: 1, date: 1 }, { unique: true });
 
-const Timesheet = mongoose.model('Timesheet', timesheetSchema);
+const Timesheet = mongoose.model('Timesheet', TimesheetSchema);
 
 module.exports = Timesheet;
 

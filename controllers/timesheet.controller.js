@@ -1,15 +1,29 @@
 const asyncHandler = require('express-async-handler');
 const Timesheet = require('../models/timesheet.model.js');
+const Employee = require('../models/employee.model.js');
+const faceapi = require('face-api.js');
+
+// Helper to fetch location name from coordinates
+const getLocationName = async (lat, lon) => {
+    try {
+        // Using Nominatim's public API for reverse geocoding
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=ar,en`);
+        if (!response.ok) return 'Unknown Location';
+        const data = await response.json();
+        return data.display_name || 'Unknown Location';
+    } catch (error) {
+        console.error("Geocoding Error:", error);
+        return 'Failed to fetch location';
+    }
+};
 
 // @desc    Get timesheet records for an employee within a date range
-// @route   GET /api/timesheets
-// @access  Private (for Admin) and Public (for Employee App)
 const getTimesheets = asyncHandler(async (req, res) => {
     const { employeeName, startDate, endDate } = req.query;
 
     if (!employeeName || !startDate || !endDate) {
         res.status(400);
-        throw new Error('معلومات الاستعلام ناقصة (اسم الموظف، تاريخ البداية، تاريخ النهاية)');
+        throw new Error('معلومات الاستعلام ناقصة');
     }
 
     const records = await Timesheet.find({
@@ -20,61 +34,66 @@ const getTimesheets = asyncHandler(async (req, res) => {
     res.json(records);
 });
 
-// @desc    Create or update a timesheet entry (check-in/check-out)
-// @route   POST /api/timesheets/entry
-// @access  Public (for Employee App, protected by face verification on the server)
+// @desc    Create or update a timesheet entry
 const createOrUpdateEntry = asyncHandler(async (req, res) => {
     const { employeeName, date, time, location, faceDescriptor, project, description } = req.body;
+    
+    if (!employeeName || !date || !time || !location || !faceDescriptor) {
+        res.status(400);
+        throw new Error('بيانات التسجيل ناقصة');
+    }
 
-    // --- (Placeholder for server-side face verification logic) ---
-    // In a real advanced scenario, the face verification would happen here.
-    // For now, we trust the frontend verification.
+    const employee = await Employee.findOne({ name: employeeName.toUpperCase() });
+    if (!employee || !employee.faceDescriptor || employee.faceDescriptor.length === 0) {
+        res.status(401);
+        throw new Error('لم يتم تسجيل بصمة الوجه لهذا الموظف');
+    }
 
-    const timesheet = await Timesheet.findOne({ employeeName: employeeName.toUpperCase(), date });
+    const faceMatcher = new faceapi.FaceMatcher([new Float32Array(employee.faceDescriptor)], 0.5);
+    const bestMatch = faceMatcher.findBestMatch(new Float32Array(faceDescriptor));
+
+    if (bestMatch.label === 'unknown') {
+        res.status(401);
+        throw new Error('الوجه غير مطابق، فشل التحقق');
+    }
+    
+    const locationName = await getLocationName(location.lat, location.lon);
+    const locationWithdName = { ...location, name: locationName };
+
+    let timesheet = await Timesheet.findOne({ employeeName: employeeName.toUpperCase(), date });
 
     if (timesheet) {
-        // Update existing record
-        if (time && location) { // If it's a check-in/out entry
-            const lastEntry = timesheet.entries[timesheet.entries.length - 1];
-            const newEntryType = !lastEntry || lastEntry.type === 'check-out' ? 'check-in' : 'check-out';
-            timesheet.entries.push({ type: newEntryType, time, location });
-        }
-        // Update project/description if provided
-        if (project !== undefined) timesheet.project = project;
-        if (description !== undefined) timesheet.description = description;
-
-        timesheet.totalHours = calculateTotalHours(timesheet.entries);
-        const updatedTimesheet = await timesheet.save();
-        res.json(updatedTimesheet);
+        const lastEntry = timesheet.entries[timesheet.entries.length - 1];
+        const newEntryType = !lastEntry || lastEntry.type === 'check-out' ? 'check-in' : 'check-out';
+        timesheet.entries.push({ type: newEntryType, time, location: locationWithdName, project, description });
     } else {
-        // Create new record for the day
-        if (!time || !location) {
-            res.status(400);
-            throw new Error('لا يمكن إنشاء سجل جديد بدون وقت وموقع.');
-        }
-        const newTimesheet = await Timesheet.create({
+        timesheet = await Timesheet.create({
             employeeName: employeeName.toUpperCase(),
             date,
-            project,
-            description,
-            entries: [{ type: 'check-in', time, location }],
-            totalHours: 0,
+            entries: [{ type: 'check-in', time, location: locationWithdName, project, description }],
         });
-        res.status(201).json(newTimesheet);
     }
+
+    const { total, regular, overtime } = calculateDayHours(timesheet.entries, new Date(date));
+    timesheet.totalHours = total;
+    timesheet.regularHours = regular;
+    timesheet.overtimeHours = overtime;
+
+    const updatedTimesheet = await timesheet.save();
+    res.json(updatedTimesheet);
 });
 
 // @desc    Update a full timesheet record (for admin edits)
-// @route   PUT /api/timesheets/:id
-// @access  Private
 const updateTimesheet = asyncHandler(async (req, res) => {
     const timesheet = await Timesheet.findById(req.params.id);
 
     if (timesheet) {
-        timesheet.project = req.body.project || timesheet.project;
-        timesheet.description = req.body.description || timesheet.description;
         timesheet.entries = req.body.entries || timesheet.entries;
-        timesheet.totalHours = calculateTotalHours(timesheet.entries);
+        
+        const { total, regular, overtime } = calculateDayHours(timesheet.entries, new Date(timesheet.date));
+        timesheet.totalHours = total;
+        timesheet.regularHours = regular;
+        timesheet.overtimeHours = overtime;
         
         const updatedTimesheet = await timesheet.save();
         res.json(updatedTimesheet);
@@ -84,35 +103,44 @@ const updateTimesheet = asyncHandler(async (req, res) => {
     }
 });
 
-
-/**
- * Helper function to calculate total hours from time entries.
- * @param {Array} entries - Array of check-in/check-out objects.
- * @returns {number} - Total hours worked.
- */
-function calculateTotalHours(entries) {
+function calculateDayHours(entries, dateObject) {
+    const standardDaySeconds = 8 * 3600;
     let totalSeconds = 0;
-    let lastCheckInTime = null;
 
-    entries.forEach(entry => {
-        const [hours, minutes] = entry.time.split(':').map(Number);
-        const currentTime = new Date();
-        currentTime.setHours(hours, minutes, 0, 0);
-
-        if (entry.type === 'check-in') {
-            if (!lastCheckInTime) {
-                lastCheckInTime = currentTime;
-            }
-        } else if (entry.type === 'check-out' && lastCheckInTime) {
-            const diff = (currentTime.getTime() - lastCheckInTime.getTime()) / 1000;
-            totalSeconds += diff;
-            lastCheckInTime = null; // Reset for the next pair
+    const sortedEntries = [...entries].sort((a, b) => a.time.localeCompare(b.time));
+    
+    for (let i = 0; i < sortedEntries.length; i += 2) {
+        const checkIn = sortedEntries[i];
+        const checkOut = sortedEntries[i + 1];
+        if (checkIn && checkOut && checkIn.type === 'check-in' && checkOut.type === 'check-out') {
+             const start = new Date(`1970-01-01T${checkIn.time}:00`);
+             let end = new Date(`1970-01-01T${checkOut.time}:00`);
+             if (end < start) {
+                 end.setDate(end.getDate() + 1);
+             }
+             totalSeconds += (end - start) / 1000;
         }
-    });
+    }
 
-    return totalSeconds / 3600; // Convert seconds to hours
+    const dayOfWeek = dateObject.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+
+    let regularSeconds = 0;
+    let overtimeSeconds = 0;
+
+    if (isWeekend) {
+        overtimeSeconds = totalSeconds;
+    } else {
+        regularSeconds = Math.min(totalSeconds, standardDaySeconds);
+        overtimeSeconds = Math.max(0, totalSeconds - standardDaySeconds);
+    }
+
+    return { 
+        total: totalSeconds / 3600, 
+        regular: regularSeconds / 3600, 
+        overtime: overtimeSeconds / 3600 
+    };
 }
-
 
 module.exports = {
     getTimesheets,
