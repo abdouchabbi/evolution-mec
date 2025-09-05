@@ -3,6 +3,126 @@ const Timesheet = require('../models/timesheet.model.js');
 const Employee = require('../models/employee.model.js');
 const faceapi = require('face-api.js');
 
+// ===== Helpers =====
+// Converts "YYYY-MM-DD" to local midnight to avoid timezone shifts
+function toLocalMidnight(dateStr) {
+    // Ensures getDay() provides the correct local weekday
+    return new Date(`${dateStr}T00:00:00`);
+}
+
+// Parses "HH:MM" or "HH:MM:SS" into seconds from the start of the day.
+// Returns null for invalid formats.
+function parseTimeToSeconds(t) {
+    if (typeof t !== 'string') return null;
+    const m = t.trim().match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/);
+    if (!m) return null;
+    const h = Number(m[1]), min = Number(m[2]), s = m[3] ? Number(m[3]) : 0;
+    if (h > 23) return null; // Strict 0..23 hours
+    return h * 3600 + min * 60 + s;
+}
+
+// Merges overlapping/adjacent intervals
+function mergeIntervals(intervals) {
+    if (intervals.length <= 1) return intervals;
+    intervals.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    let [cs, ce] = intervals[0];
+    for (let i = 1; i < intervals.length; i++) {
+        const [s, e] = intervals[i];
+        if (s <= ce) {
+            ce = Math.max(ce, e); // Merge
+        } else {
+            merged.push([cs, ce]);
+            [cs, ce] = [s, e];
+        }
+    }
+    merged.push([cs, ce]);
+    return merged;
+}
+
+// ===== New Accurate Function =====
+function calculateDayHours(entries, dateObject, options = {}) {
+    const standardHours = options.standardHours ?? 8;
+    const weekendDays   = options.weekendDays   ?? [0, 6]; // 0=Sunday, 6=Saturday
+    const countOvernightInSameDay = options.countOvernightInSameDay ?? true;
+    const rounding = options.rounding ?? null;
+
+    const standardDaySeconds = standardHours * 3600;
+
+    // 1) Clean and sort entries
+    const cleaned = entries
+        .filter(e => e && (e.type === 'check-in' || e.type === 'check-out'))
+        .map(e => ({ type: e.type, sec: parseTimeToSeconds(e.time) }))
+        .filter(e => e.sec !== null)
+        .sort((a, b) => a.sec - b.sec);
+
+    // 2) Form [startSec, endSec] intervals
+    const intervals = [];
+    let openIn = null;
+
+    for (const e of cleaned) {
+        if (e.type === 'check-in') {
+            openIn = e.sec;
+        } else { // check-out
+            if (openIn !== null) {
+                let start = openIn;
+                let end = e.sec;
+
+                if (end <= start) {
+                    if (countOvernightInSameDay) {
+                        end += 24 * 3600;
+                    }
+                }
+                intervals.push([start, end]);
+                openIn = null;
+            }
+        }
+    }
+
+    // 3) Merge overlapping intervals and sum durations
+    const merged = mergeIntervals(intervals);
+    let totalSeconds = 0;
+    for (const [s, e] of merged) totalSeconds += (e - s);
+
+    // 4) Determine weekday
+    const dayOfWeek = dateObject.getDay();
+    const isWeekend = weekendDays.includes(dayOfWeek);
+
+    let regularSeconds = 0;
+    let overtimeSeconds = 0;
+
+    if (isWeekend) {
+        overtimeSeconds = totalSeconds;
+    } else {
+        regularSeconds = Math.min(totalSeconds, standardDaySeconds);
+        overtimeSeconds = Math.max(0, totalSeconds - standardDaySeconds);
+    }
+
+    // 5) Optional rounding
+    const applyRounding = (sec) => {
+        if (!rounding || !rounding.minutes || rounding.minutes <= 0) return sec;
+        const quantum = rounding.minutes * 60;
+        const mode = rounding.mode || 'up';
+        if (mode === 'up')     return Math.ceil(sec / quantum) * quantum;
+        if (mode === 'down')   return Math.floor(sec / quantum) * quantum;
+        /* nearest */          return Math.round(sec / quantum) * quantum;
+    };
+
+    if (rounding && rounding.target === 'overtime') {
+        overtimeSeconds = applyRounding(overtimeSeconds);
+    }
+    
+    const toHours = (sec) => Number((sec / 3600).toFixed(4));
+    const totalSecondsFinal = regularSeconds + overtimeSeconds;
+
+    return {
+        total:   toHours(totalSecondsFinal),
+        regular: toHours(regularSeconds),
+        overtime:toHours(overtimeSeconds),
+    };
+}
+
+
 // Helper to fetch and format a concise location name from coordinates
 const getLocationName = async (lat, lon) => {
     try {
@@ -114,7 +234,11 @@ const createOrUpdateEntry = asyncHandler(async (req, res) => {
         });
     }
 
-    const { total, regular, overtime } = calculateDayHours(timesheet.entries, new Date(date));
+    const { total, regular, overtime } = calculateDayHours(
+        timesheet.entries,
+        toLocalMidnight(date), // Important for correct weekday
+        { rounding: { target: 'overtime', minutes: 30, mode: 'up' } } // Optional rounding for overtime
+    );
     timesheet.totalHours = total;
     timesheet.regularHours = regular;
     timesheet.overtimeHours = overtime;
@@ -130,7 +254,11 @@ const updateTimesheet = asyncHandler(async (req, res) => {
     if (timesheet) {
         timesheet.entries = req.body.entries || timesheet.entries;
         
-        const { total, regular, overtime } = calculateDayHours(timesheet.entries, new Date(timesheet.date));
+        const { total, regular, overtime } = calculateDayHours(
+            timesheet.entries,
+            toLocalMidnight(timesheet.date),
+            { rounding: { target: 'overtime', minutes: 30, mode: 'up' } }
+        );
         timesheet.totalHours = total;
         timesheet.regularHours = regular;
         timesheet.overtimeHours = overtime;
@@ -142,92 +270,6 @@ const updateTimesheet = asyncHandler(async (req, res) => {
         throw new Error('لم يتم العثور على سجل الدوام');
     }
 });
-
-function calculateDayHours(entries, dateObject) {
-    const standardDaySeconds = 8 * 3600;
-    let totalSeconds = 0;
-
-    // --- NEW, MORE ROBUST LOGIC ---
-    // 1. Filter out invalid entries and sort everything by time.
-    const sortedEntries = entries
-        .filter(e => e.time && typeof e.time === 'string' && /^\d{2}:\d{2}$/.test(e.time))
-        .sort((a, b) => a.time.localeCompare(b.time));
-
-    // 2. Create a mutable copy to process.
-    let processingEntries = [...sortedEntries];
-
-    // 3. Keep finding and processing pairs until no more pairs can be formed.
-    while (processingEntries.length > 1) {
-        // Find the first 'check-in' in the remaining entries.
-        const checkInIndex = processingEntries.findIndex(e => e.type === 'check-in');
-
-        if (checkInIndex === -1) {
-            // If no more check-ins, we can't form any more intervals.
-            break;
-        }
-
-        const checkIn = processingEntries[checkInIndex];
-
-        // Find the very next 'check-out' that occurs chronologically *after* this 'check-in'.
-        const checkOutIndex = processingEntries.findIndex(
-            (e, i) => i > checkInIndex && e.type === 'check-out'
-        );
-
-        if (checkOutIndex !== -1) {
-            // A valid pair has been found.
-            const checkOut = processingEntries[checkOutIndex];
-
-            const start = new Date(`1970-01-01T${checkIn.time}:00`);
-            let end = new Date(`1970-01-01T${checkOut.time}:00`);
-
-            // Ensure dates are valid before calculation.
-            if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-                if (end < start) {
-                    end.setDate(end.getDate() + 1); // Handle overnight shifts.
-                }
-                totalSeconds += (end - start) / 1000;
-            }
-
-            // IMPORTANT: Remove the used pair from the array so they aren't processed again.
-            // Remove in reverse index order to avoid shifting the array incorrectly.
-            processingEntries.splice(checkOutIndex, 1);
-            processingEntries.splice(checkInIndex, 1);
-        } else {
-            // This 'check-in' has no corresponding 'check-out' for the rest of the day.
-            // It's an open interval, so we can't calculate its duration.
-            // Remove it and let the loop continue to see if other pairs exist.
-            processingEntries.splice(checkInIndex, 1);
-        }
-    }
-    // --- END OF NEW LOGIC ---
-
-    const dayOfWeek = dateObject.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
-
-    let regularSeconds = 0;
-    let overtimeSeconds = 0;
-
-    if (isWeekend) {
-        overtimeSeconds = totalSeconds;
-    } else {
-        regularSeconds = Math.min(totalSeconds, standardDaySeconds);
-        overtimeSeconds = Math.max(0, totalSeconds - standardDaySeconds);
-    }
-
-    if (overtimeSeconds > 0) {
-        const overtimeMinutes = overtimeSeconds / 60;
-        const roundedMinutes = Math.ceil(overtimeMinutes / 30) * 30;
-        overtimeSeconds = roundedMinutes * 60;
-    }
-    
-    const finalTotalSeconds = regularSeconds + overtimeSeconds;
-
-    return { 
-        total: finalTotalSeconds / 3600, 
-        regular: regularSeconds / 3600, 
-        overtime: overtimeSeconds / 3600 
-    };
-}
 
 module.exports = {
     getTimesheets,
