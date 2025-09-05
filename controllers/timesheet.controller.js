@@ -147,44 +147,59 @@ function calculateDayHours(entries, dateObject) {
     const standardDaySeconds = 8 * 3600;
     let totalSeconds = 0;
 
-    // --- NEW ROBUST LOGIC ---
-    // 1. Filter out invalid entries and sort everything by time
+    // --- NEW, MORE ROBUST LOGIC ---
+    // 1. Filter out invalid entries and sort everything by time.
     const sortedEntries = entries
         .filter(e => e.time && typeof e.time === 'string' && /^\d{2}:\d{2}$/.test(e.time))
         .sort((a, b) => a.time.localeCompare(b.time));
 
-    let lastCheckInTime = null;
+    // 2. Create a mutable copy to process.
+    let processingEntries = [...sortedEntries];
 
-    // 2. Iterate through the sorted log and pair check-ins with the next check-out
-    for (const entry of sortedEntries) {
-        const entryTime = new Date(`1970-01-01T${entry.time}:00`);
-        if (isNaN(entryTime.getTime())) {
-            continue; // Skip invalid time formats
+    // 3. Keep finding and processing pairs until no more pairs can be formed.
+    while (processingEntries.length > 1) {
+        // Find the first 'check-in' in the remaining entries.
+        const checkInIndex = processingEntries.findIndex(e => e.type === 'check-in');
+
+        if (checkInIndex === -1) {
+            // If no more check-ins, we can't form any more intervals.
+            break;
         }
 
-        if (entry.type === 'check-in') {
-            // If we are not already 'in', record this as the start of a new interval.
-            // This correctly handles multiple 'check-in' in a row by only using the first one.
-            if (!lastCheckInTime) {
-                lastCheckInTime = entryTime;
-            }
-        } else if (entry.type === 'check-out') {
-            // If we are 'in', this 'check-out' closes the interval.
-            // This correctly handles multiple 'check-out' in a row by only using the first one.
-            if (lastCheckInTime) {
-                let checkOutTime = entryTime;
-                
-                if (checkOutTime < lastCheckInTime) {
-                    checkOutTime.setDate(checkOutTime.getDate() + 1); // Handle overnight work
+        const checkIn = processingEntries[checkInIndex];
+
+        // Find the very next 'check-out' that occurs chronologically *after* this 'check-in'.
+        const checkOutIndex = processingEntries.findIndex(
+            (e, i) => i > checkInIndex && e.type === 'check-out'
+        );
+
+        if (checkOutIndex !== -1) {
+            // A valid pair has been found.
+            const checkOut = processingEntries[checkOutIndex];
+
+            const start = new Date(`1970-01-01T${checkIn.time}:00`);
+            let end = new Date(`1970-01-01T${checkOut.time}:00`);
+
+            // Ensure dates are valid before calculation.
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                if (end < start) {
+                    end.setDate(end.getDate() + 1); // Handle overnight shifts.
                 }
-                
-                totalSeconds += (checkOutTime - lastCheckInTime) / 1000;
-                lastCheckInTime = null; // Reset, as this interval is now closed.
+                totalSeconds += (end - start) / 1000;
             }
+
+            // IMPORTANT: Remove the used pair from the array so they aren't processed again.
+            // Remove in reverse index order to avoid shifting the array incorrectly.
+            processingEntries.splice(checkOutIndex, 1);
+            processingEntries.splice(checkInIndex, 1);
+        } else {
+            // This 'check-in' has no corresponding 'check-out' for the rest of the day.
+            // It's an open interval, so we can't calculate its duration.
+            // Remove it and let the loop continue to see if other pairs exist.
+            processingEntries.splice(checkInIndex, 1);
         }
     }
     // --- END OF NEW LOGIC ---
-
 
     const dayOfWeek = dateObject.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
