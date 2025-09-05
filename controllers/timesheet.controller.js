@@ -147,44 +147,45 @@ function calculateDayHours(entries, dateObject) {
     const standardDaySeconds = 8 * 3600;
     let totalSeconds = 0;
 
-    // 1. Filter and sort check-ins and check-outs to ensure they are valid and in order
-    const checkIns = entries
-        .filter(e => e.type === 'check-in' && e.time && /^\d{2}:\d{2}$/.test(e.time))
-        .sort((a, b) => a.time.localeCompare(b.time));
-    
-    const checkOuts = entries
-        .filter(e => e.type === 'check-out' && e.time && /^\d{2}:\d{2}$/.test(e.time))
+    // --- NEW ROBUST LOGIC ---
+    // 1. Filter out invalid entries and sort everything by time
+    const sortedEntries = entries
+        .filter(e => e.time && typeof e.time === 'string' && /^\d{2}:\d{2}$/.test(e.time))
         .sort((a, b) => a.time.localeCompare(b.time));
 
-    // 2. Pair them up robustly to calculate intervals
-    let lastUsedCheckOutIndex = -1;
-    checkIns.forEach(checkIn => {
-        const checkInTime = new Date(`1970-01-01T${checkIn.time}:00`);
+    let lastCheckInTime = null;
 
-        // Find the first available check-out that occurs after the current check-in
-        const matchingCheckOutIndex = checkOuts.findIndex(
-            (checkOut, index) => index > lastUsedCheckOutIndex && checkOut.time >= checkIn.time
-        );
-
-        if (matchingCheckOutIndex !== -1) {
-            const checkOut = checkOuts[matchingCheckOutIndex];
-            let checkOutTime = new Date(`1970-01-01T${checkOut.time}:00`);
-            lastUsedCheckOutIndex = matchingCheckOutIndex; // Mark this checkout as used for the next iteration
-
-            // Skip if date parsing resulted in an invalid date object
-            if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
-                return; 
-            }
-
-            if (checkOutTime < checkInTime) {
-                checkOutTime.setDate(checkOutTime.getDate() + 1); // Handle overnight work
-            }
-
-            totalSeconds += (checkOutTime - checkInTime) / 1000;
+    // 2. Iterate through the sorted log and pair check-ins with the next check-out
+    for (const entry of sortedEntries) {
+        const entryTime = new Date(`1970-01-01T${entry.time}:00`);
+        if (isNaN(entryTime.getTime())) {
+            continue; // Skip invalid time formats
         }
-    });
 
-    // 3. The rest of the logic for overtime and rounding remains the same
+        if (entry.type === 'check-in') {
+            // If we are not already 'in', record this as the start of a new interval.
+            // This correctly handles multiple 'check-in' in a row by only using the first one.
+            if (!lastCheckInTime) {
+                lastCheckInTime = entryTime;
+            }
+        } else if (entry.type === 'check-out') {
+            // If we are 'in', this 'check-out' closes the interval.
+            // This correctly handles multiple 'check-out' in a row by only using the first one.
+            if (lastCheckInTime) {
+                let checkOutTime = entryTime;
+                
+                if (checkOutTime < lastCheckInTime) {
+                    checkOutTime.setDate(checkOutTime.getDate() + 1); // Handle overnight work
+                }
+                
+                totalSeconds += (checkOutTime - lastCheckInTime) / 1000;
+                lastCheckInTime = null; // Reset, as this interval is now closed.
+            }
+        }
+    }
+    // --- END OF NEW LOGIC ---
+
+
     const dayOfWeek = dateObject.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
