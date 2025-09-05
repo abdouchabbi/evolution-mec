@@ -6,7 +6,6 @@ const generateToken = require('../utils/generateToken.js');
 // @route   POST /api/users/register
 // @access  Public (should be protected in a real-world scenario after the first admin is created)
 const registerUser = asyncHandler(async (req, res) => {
-    // فقط استخلاص الحقول الأساسية المطلوبة من العميل
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
@@ -20,15 +19,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('المستخدم مسجل بالفعل');
     }
 
-    // إنشاء كائن المستخدم بشكل صريح مع تعيين اسم المستخدم ليكون البريد الإلكتروني
-    const userToCreate = {
-        name: name,
-        email: email,
-        password: password,
-        username: email // هذا يضمن أن اسم المستخدم لن يكون فارغًا أبدًا
-    };
-
-    const user = await User.create(userToCreate);
+    const user = await User.create({ name, email, password, username: email });
 
     if (user) {
         res.status(201).json({
@@ -48,7 +39,8 @@ const registerUser = asyncHandler(async (req, res) => {
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    // --- FIX: Explicitly select the password field which is likely excluded by default ---
+    const user = await User.findOne({ email }).select('+password');
 
     if (user && (await user.matchPassword(password))) {
         res.json({

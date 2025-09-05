@@ -146,30 +146,45 @@ const updateTimesheet = asyncHandler(async (req, res) => {
 function calculateDayHours(entries, dateObject) {
     const standardDaySeconds = 8 * 3600;
     let totalSeconds = 0;
-    let lastCheckInTime = null;
 
-    const sortedEntries = [...entries].sort((a, b) => a.time.localeCompare(b.time));
+    // 1. Filter and sort check-ins and check-outs to ensure they are valid and in order
+    const checkIns = entries
+        .filter(e => e.type === 'check-in' && e.time && /^\d{2}:\d{2}$/.test(e.time))
+        .sort((a, b) => a.time.localeCompare(b.time));
     
-    sortedEntries.forEach(entry => {
-        if (entry.type === 'check-in') {
-            // If there's a new check-in, it becomes the starting point for the next interval.
-            // This correctly handles cases of two check-ins in a row (the last one is used).
-            lastCheckInTime = new Date(`1970-01-01T${entry.time}:00`);
-        } else if (entry.type === 'check-out' && lastCheckInTime) {
-            // If we have a check-out and a preceding check-in to pair it with.
-            let checkOutTime = new Date(`1970-01-01T${entry.time}:00`);
-            
-            if (checkOutTime < lastCheckInTime) {
+    const checkOuts = entries
+        .filter(e => e.type === 'check-out' && e.time && /^\d{2}:\d{2}$/.test(e.time))
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+    // 2. Pair them up robustly to calculate intervals
+    let lastUsedCheckOutIndex = -1;
+    checkIns.forEach(checkIn => {
+        const checkInTime = new Date(`1970-01-01T${checkIn.time}:00`);
+
+        // Find the first available check-out that occurs after the current check-in
+        const matchingCheckOutIndex = checkOuts.findIndex(
+            (checkOut, index) => index > lastUsedCheckOutIndex && checkOut.time >= checkIn.time
+        );
+
+        if (matchingCheckOutIndex !== -1) {
+            const checkOut = checkOuts[matchingCheckOutIndex];
+            let checkOutTime = new Date(`1970-01-01T${checkOut.time}:00`);
+            lastUsedCheckOutIndex = matchingCheckOutIndex; // Mark this checkout as used for the next iteration
+
+            // Skip if date parsing resulted in an invalid date object
+            if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
+                return; 
+            }
+
+            if (checkOutTime < checkInTime) {
                 checkOutTime.setDate(checkOutTime.getDate() + 1); // Handle overnight work
             }
-            
-            totalSeconds += (checkOutTime - lastCheckInTime) / 1000;
-            
-            // Reset lastCheckInTime so it cannot be used again for another check-out.
-            lastCheckInTime = null; 
+
+            totalSeconds += (checkOutTime - checkInTime) / 1000;
         }
     });
 
+    // 3. The rest of the logic for overtime and rounding remains the same
     const dayOfWeek = dateObject.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
 
@@ -183,15 +198,12 @@ function calculateDayHours(entries, dateObject) {
         overtimeSeconds = Math.max(0, totalSeconds - standardDaySeconds);
     }
 
-    // --- NEW LOGIC: Round up overtime to the nearest half hour ---
     if (overtimeSeconds > 0) {
         const overtimeMinutes = overtimeSeconds / 60;
-        // Ceil to the nearest 30-minute interval
         const roundedMinutes = Math.ceil(overtimeMinutes / 30) * 30;
         overtimeSeconds = roundedMinutes * 60;
     }
     
-    // Recalculate total based on potentially rounded overtime
     const finalTotalSeconds = regularSeconds + overtimeSeconds;
 
     return { 
