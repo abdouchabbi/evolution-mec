@@ -175,8 +175,19 @@ function calculateDayHours(entries, dateObject) {
         overtimeSeconds = Math.max(0, totalSeconds - standardDaySeconds);
     }
 
+    // --- NEW LOGIC: Round up overtime to the nearest half hour ---
+    if (overtimeSeconds > 0) {
+        const overtimeMinutes = overtimeSeconds / 60;
+        // Ceil to the nearest 30-minute interval
+        const roundedMinutes = Math.ceil(overtimeMinutes / 30) * 30;
+        overtimeSeconds = roundedMinutes * 60;
+    }
+    
+    // Recalculate total based on potentially rounded overtime
+    const finalTotalSeconds = regularSeconds + overtimeSeconds;
+
     return { 
-        total: totalSeconds / 3600, 
+        total: finalTotalSeconds / 3600, 
         regular: regularSeconds / 3600, 
         overtime: overtimeSeconds / 3600 
     };
@@ -187,3 +198,4 @@ module.exports = {
     createOrUpdateEntry,
     updateTimesheet,
 };
+
