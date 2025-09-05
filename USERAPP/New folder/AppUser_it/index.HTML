@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="it" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تطبيق الموظف</title>
+    <title>Applicazione Dipendente</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- face-api.js -->
@@ -12,54 +12,128 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-        body { font-family: 'Cairo', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+        }
+
         .loader {
-            border: 4px solid #f3f3f3; border-radius: 50%;
-            border-top: 4px solid #4f46e5; width: 40px; height: 40px;
-            animation: spin 2s linear infinite; margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #4f46e5;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .pin-input {
-            width: 3rem; height: 3rem; text-align: center; font-size: 1.5rem;
-            border: 2px solid #d1d5db; border-radius: 0.5rem;
+            width: 3rem;
+            height: 3rem;
+            text-align: center;
+            font-size: 1.5rem;
+            border: 2px solid #d1d5db;
+            border-radius: 0.5rem;
             margin: 0 0.25rem;
+            transition: all 0.2s;
         }
-        .view { display: none; }
-        .view.active { display: flex; }
-        .modal { display: none; }
-        .modal.active { display: flex; }
+
+        .pin-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: flex !important;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .modal {
+            display: none;
+        }
+
+        .modal.active {
+            display: flex !important;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* تصميم جدول التقرير */
+        #employee-report-table th, #employee-report-table td {
+            padding: 0.6rem;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+
+        #employee-report-table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        #employee-report-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        #employee-report-table tr:hover {
+            background-color: #eff6ff;
+            transition: background-color 0.2s;
+        }
+
+        /* تحسين تجربة التصدير */
+        .export-btn {
+            transition: all 0.2s;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <!-- Views Container -->
+    <!-- Container delle Viste -->
     <div id="loading-view" class="view active fixed inset-0 bg-black bg-opacity-75 z-[100] flex-col items-center justify-center">
         <div class="loader"></div>
-        <p class="text-white text-lg mt-4" id="loading-message">جاري تحميل النظام...</p>
+        <p class="text-white text-lg mt-4" id="loading-message">Caricamento del sistema in corso...</p>
     </div>
 
     <div id="face-recognition-view" class="view items-center justify-center min-h-screen bg-gray-200 p-4">
-        <div class="w-full max-w-md p-6 sm:p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-            <h2 class="text-2xl font-bold text-gray-700">الرجاء النظر إلى الكاميرا</h2>
-            <div class="bg-gray-200 w-full aspect-square rounded-md my-4 relative">
-                <video id="face-video" class="w-full h-full rounded-md" autoplay muted playsinline></video>
+        <div class="w-full max-w-md p-6 sm:p-8 space-y-6 bg-white rounded-xl shadow-xl text-center">
+            <h2 class="text-2xl font-bold text-gray-700">Per favore guarda la fotocamera</h2>
+            <div class="bg-gray-200 w-full aspect-square rounded-xl my-4 relative overflow-hidden">
+                <video id="face-video" class="w-full h-full rounded-xl" autoplay muted playsinline></video>
             </div>
-            <p id="face-status" class="text-lg font-semibold text-gray-600 h-8">جاري البحث عن وجه...</p>
+            <p id="face-status" class="text-lg font-semibold text-gray-600 h-8">Ricerca del volto in corso...</p>
         </div>
     </div>
 
     <div id="pin-view" class="view items-center justify-center min-h-screen bg-gray-200 p-4">
-        <div class="w-full max-w-md p-6 sm:p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-            <h2 id="pin-welcome-message" class="text-2xl font-bold text-gray-700">أهلاً بك!</h2>
-            <p class="text-gray-600">الرجاء إدخال رمز PIN الخاص بك</p>
+        <div class="w-full max-w-md p-6 sm:p-8 space-y-6 bg-white rounded-xl shadow-xl text-center">
+            <h2 id="pin-welcome-message" class="text-2xl font-bold text-gray-700">Benvenuto!</h2>
+            <p class="text-gray-600">Inserisci il tuo codice PIN</p>
             <form id="pin-form">
                 <div id="pin-inputs" class="flex justify-center my-4">
-                    <!-- PIN inputs will be generated by JS -->
+                    <!-- I campi PIN verranno generati dal JS -->
                 </div>
-                <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700">تحقق</button>
+                <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">Verifica</button>
             </form>
         </div>
     </div>
@@ -68,107 +142,132 @@
         <div class="w-full max-w-2xl">
             <header class="flex justify-between items-center mb-6">
                 <div>
-                    <h1 id="main-welcome-message" class="text-xl sm:text-2xl font-bold text-gray-800">مرحبا!</h1>
+                    <h1 id="main-welcome-message" class="text-xl sm:text-2xl font-bold text-gray-800">Benvenuto!</h1>
                 </div>
-                <button id="logout-btn" class="text-sm text-red-600 hover:underline">تسجيل الخروج</button>
+                <button id="logout-btn" class="text-sm text-red-600 hover:underline">Esci</button>
             </header>
-            <main class="bg-white p-6 rounded-lg shadow-md">
+            <main class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="text-center">
-                    <h2 class="text-xl font-semibold mb-2">لوحة معلومات اليوم</h2>
+                    <h2 class="text-xl font-semibold mb-2">Dashboard di Oggi</h2>
                     <p id="main-date" class="text-gray-500 mb-4"></p>
                     <div class="flex flex-col sm:flex-row justify-around items-center bg-gray-50 p-4 rounded-lg mb-6 space-y-4 sm:space-y-0">
                         <div>
-                            <p class="text-sm text-gray-500">الحالة الحالية</p>
+                            <p class="text-sm text-gray-500">Stato Attuale</p>
                             <p id="main-status-text" class="font-bold text-lg px-3 py-1 rounded-full"></p>
                         </div>
                         <div class="border-t sm:border-t-0 sm:border-r w-full sm:w-auto pt-4 sm:pt-0 sm:pr-4">
-                            <p class="text-sm text-gray-500">إجمالي ساعات اليوم</p>
+                            <p class="text-sm text-gray-500">Totale Ore di Oggi</p>
                             <p id="main-total-hours" class="font-bold text-2xl">0.00</p>
                         </div>
                     </div>
                     <button id="main-action-btn" class="bg-indigo-600 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:bg-indigo-700 transition text-lg w-full md:w-auto">
-                        تسجيل الآن
+                        Registra Ora
                     </button>
                 </div>
                 <div class="mt-8 border-t pt-4">
-                    <h3 class="font-semibold mb-2">سجل اليوم</h3>
+                    <h3 class="font-semibold mb-2">Registro di Oggi</h3>
                     <div id="main-daily-log">
-                        <p class="text-center text-gray-500">جاري تحميل السجل...</p>
+                        <p class="text-center text-gray-500">Caricamento registro in corso...</p>
                     </div>
                 </div>
             </main>
             <footer class="mt-6">
-                <div class="bg-white p-6 rounded-lg shadow-md text-center">
-                    <h2 class="text-xl font-semibold mb-4">تقارير ساعات العمل</h2>
-                    <button id="open-reports-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">عرض تقاريري</button>
+                <div class="bg-white p-6 rounded-xl shadow-lg text-center">
+                    <h2 class="text-xl font-semibold mb-4">Rapporti Ore Lavorate</h2>
+                    <button id="open-reports-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition export-btn">Visualizza i Miei Rapporti</button>
                 </div>
             </footer>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 items-center justify-center z-[60] p-4">
-        <div class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
-            <p id="alert-message"></p>
-            <div class="mt-4 flex justify-end">
-                <button id="alert-ok-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md">موافق</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Modale Verifica -->
     <div id="verification-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
-        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
-            <h3 id="verification-title" class="text-lg font-bold mb-4">التحقق من الهوية</h3>
-            <div class="bg-gray-200 w-full aspect-square rounded-md mb-4">
-                <video id="verification-video" class="w-full h-full rounded-md" autoPlay muted playsInline></video>
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center">
+            <h3 id="verification-title" class="text-lg font-bold mb-4">Verifica Identità</h3>
+            <div class="bg-gray-200 w-full aspect-square rounded-xl mb-4 overflow-hidden">
+                <video id="verification-video" class="w-full h-full rounded-xl" autoPlay muted playsInline></video>
             </div>
-            <p id="verification-status" class="mb-4 h-6 font-semibold">الرجاء توجيه الوجه للكاميرا...</p>
+            <p id="verification-status" class="mb-4 h-6 font-semibold">Per favore rivolgi il volto alla fotocamera...</p>
             <div class="space-y-4 text-right mb-4">
                 <div>
-                    <label for="project-select" class="block text-sm font-medium text-gray-700">المشروع (اختياري)</label>
-                    <select id="project-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        <option value="">-- اختر مشروع --</option>
+                    <label for="project-select" class="block text-sm font-medium text-gray-700">Progetto (Opzionale)</label>
+                    <select id="project-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Seleziona Progetto --</option>
                     </select>
                 </div>
                 <div>
-                    <label for="description-input" class="block text-sm font-medium text-gray-700">ملاحظات (اختياري)</label>
-                    <input type="text" id="description-input" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                    <label for="description-input" class="block text-sm font-medium text-gray-700">Note (Opzionale)</label>
+                    <input type="text" id="description-input" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" />
                 </div>
             </div>
             <div class="flex gap-4">
-                <button id="verification-cancel-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">إلغاء</button>
-                <button id="verification-confirm-btn" disabled class="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400">تأكيد</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="reports-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
-        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-4xl h-[95vh] p-4 sm:p-6 flex flex-col">
-            <h2 class="text-xl font-semibold mb-4 text-center">Riepilogo Mensile</h2>
-            <div class="flex flex-col sm:flex-row items-end gap-4 mb-4">
-                <div class="flex-grow w-full">
-                    <label for="reports-month-select" class="block text-sm font-medium">Mese:</label>
-                    <select id="reports-month-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                </div>
-                <div class="flex-grow w-full">
-                    <label for="reports-year-select" class="block text-sm font-medium">Anno:</label>
-                    <select id="reports-year-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                </div>
-                <button id="reports-view-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto">Mostra</button>
-            </div>
-            <div id="report-content" class="flex-grow overflow-auto border-t pt-4">
-                <!-- Report content will be injected here -->
-            </div>
-            <div class="mt-auto flex items-center gap-4 pt-4 border-t">
-                <div id="report-export-buttons" class="hidden">
-                     <button id="export-png-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">Esporta PNG</button>
-                     <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">Esporta PDF</button>
-                </div>
-                <button id="reports-close-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg ml-auto">Chiudi</button>
+                <button id="verification-cancel-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">Annulla</button>
+                <button id="verification-confirm-btn" disabled class="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400">Conferma</button>
             </div>
         </div>
     </div>
 
+    <!-- Modale تقارير محدثة -->
+    <div id="reports-modal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+            <!-- رأس النافذة -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 text-center rounded-t-2xl">
+                <h2 class="text-2xl font-bold">Riepilogo Mensile</h2>
+                <p id="report-period" class="text-blue-100 mt-1">Periodo: Agosto 2025</p>
+            </div>
+
+            <!-- تحكم في التصفية -->
+            <div class="flex flex-col sm:flex-row items-end gap-4 p-6 bg-gray-50 border-b">
+                <div class="flex-grow">
+                    <label class="block text-sm font-medium text-gray-700">Mese:</label>
+                    <select id="reports-month-select" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                </div>
+                <div class="flex-grow">
+                    <label class="block text-sm font-medium text-gray-700">Anno:</label>
+                    <select id="reports-year-select" class="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                </div>
+                <button id="reports-view-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition w-full sm:w-auto">
+                    Mostra
+                </button>
+            </div>
+
+            <!-- محتوى التقرير -->
+            <div id="report-content" class="flex-grow overflow-auto p-4 bg-white">
+                <!-- سيتم إدراج الجدول هنا -->
+            </div>
+
+            <!-- أزرار التصدير والإغلاق -->
+            <div class="flex flex-col sm:flex-row gap-3 p-6 bg-gray-50 border-t">
+                <div id="report-export-buttons" class="flex gap-3 justify-center sm:justify-start">
+                    <button id="export-png-btn" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 export-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Esporta PNG
+                    </button>
+                    <button id="export-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 export-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Esporta PDF
+                    </button>
+                </div>
+                <button id="reports-close-btn" class="ml-auto bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-lg font-medium transition">
+                    Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Avviso -->
+    <div id="alert-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-50 items-center justify-center z-[60] p-4">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-md">
+            <p id="alert-message"></p>
+            <div class="mt-4 flex justify-end">
+                <button id="alert-ok-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -178,8 +277,10 @@
             let recognitionInterval = null;
             let verificationInterval = null;
             let currentVideoStream = null;
+            let totalOrd = 0; // Global for PDF export
+            let totalStraord = 0;
 
-            // --- State Management ---
+            // --- Gestione Stato ---
             const state = {
                 recognizedEmployee: null,
                 loggedInEmployee: null,
@@ -187,7 +288,7 @@
                 projects: [],
             };
 
-            // --- DOM Elements ---
+            // --- Elementi DOM ---
             const elements = {
                 views: document.querySelectorAll('.view'),
                 loading: {
@@ -244,7 +345,7 @@
                 }
             };
 
-            // --- API Layer ---
+            // --- Livello API ---
             const api = {
                 async request(endpoint, method = 'GET', body = null) {
                     try {
@@ -254,10 +355,10 @@
                             body: body ? JSON.stringify(body) : null,
                         });
                         const data = await response.json();
-                        if (!response.ok) throw new Error(data.message || 'Server Error');
+                        if (!response.ok) throw new Error(data.message || 'Errore Server');
                         return data;
                     } catch (error) {
-                        showAlert(error.message.includes('fetch') ? 'فشل الاتصال بالخادم' : error.message);
+                        showAlert(error.message.includes('fetch') ? 'Connessione al server fallita' : error.message);
                         throw error;
                     }
                 },
@@ -265,13 +366,13 @@
                 post(endpoint, body) { return this.request(endpoint, 'POST', body); }
             };
 
-            // --- View & State Management ---
+            // --- Gestione Viste & Stato ---
             function switchView(viewId) {
                 elements.views.forEach(v => v.classList.remove('active'));
                 document.getElementById(viewId).classList.add('active');
             }
 
-            // --- Alert Modal ---
+            // --- Modale di Avviso ---
             function showAlert(message, isSuccess = false) {
                 elements.alert.message.textContent = message;
                 elements.alert.message.className = isSuccess ? 'text-green-600' : 'text-red-600';
@@ -279,11 +380,11 @@
             }
             elements.alert.okBtn.addEventListener('click', () => elements.alert.modal.classList.remove('active'));
 
-            // --- Main App Logic ---
+            // --- Logica App Principale ---
             async function renderMainDashboard() {
-                elements.main.welcome.textContent = `مرحبا، ${state.loggedInEmployee.name}!`;
-                elements.main.date.textContent = new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                elements.main.dailyLog.innerHTML = `<p class="text-center text-gray-500">جاري تحميل السجل...</p>`;
+                elements.main.welcome.textContent = `Benvenuto, ${state.loggedInEmployee.name}!`;
+                elements.main.date.textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                elements.main.dailyLog.innerHTML = `<p class="text-center text-gray-500">Caricamento registro in corso...</p>`;
 
                 try {
                     const today = new Date().toISOString().split('T')[0];
@@ -293,34 +394,34 @@
                     const lastEntry = state.todayData?.entries?.[state.todayData.entries.length - 1];
                     const currentStatus = !lastEntry || lastEntry.type === 'check-out' ? 'out' : 'in';
                     
-                    elements.main.statusText.textContent = currentStatus === 'in' ? 'مسجل دخول' : 'مسجل خروج';
+                    elements.main.statusText.textContent = currentStatus === 'in' ? 'Registrato in ingresso' : 'Registrato in uscita';
                     elements.main.statusText.className = `font-bold text-lg px-3 py-1 rounded-full ${currentStatus === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
-                    elements.main.actionBtn.textContent = `${currentStatus === 'in' ? 'تسجيل خروج' : 'تسجيل دخول'} الآن`;
+                    elements.main.actionBtn.textContent = `${currentStatus === 'in' ? 'Registra Uscita' : 'Registra Ingresso'} Ora`;
                     elements.main.totalHours.textContent = (state.todayData?.totalHours || 0).toFixed(2);
 
                     if (state.todayData && state.todayData.entries.length > 0) {
                         elements.main.dailyLog.innerHTML = `<ul class="space-y-2 text-sm">${state.todayData.entries.map(entry => `
                             <li class="flex justify-between p-2 bg-gray-50 rounded">
-                                <span>${entry.type === 'check-in' ? 'دخول' : 'خروج'} الساعة: <strong>${entry.time}</strong></span>
+                                <span>${entry.type === 'check-in' ? 'Ingresso' : 'Uscita'} alle ore: <strong>${entry.time}</strong></span>
                                 <span class="text-gray-500">${entry.project || ''}</span>
                             </li>`).join('')}</ul>`;
                     } else {
-                        elements.main.dailyLog.innerHTML = `<p class="text-center text-gray-500">لا توجد تسجيلات لهذا اليوم.</p>`;
+                        elements.main.dailyLog.innerHTML = `<p class="text-center text-gray-500">Nessuna registrazione per oggi.</p>`;
                     }
 
                 } catch (error) {
-                    elements.main.dailyLog.innerHTML = `<p class="text-center text-red-500">فشل تحميل بيانات اليوم.</p>`;
+                    elements.main.dailyLog.innerHTML = `<p class="text-center text-red-500">Caricamento dati giornalieri fallito.</p>`;
                 }
             }
 
-            // --- Face Recognition Logic ---
+            // --- Logica Riconoscimento Facciale ---
             async function startFaceRecognition() {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
                     elements.face.video.srcObject = stream;
                     
                     const employees = await api.get('employees/face-login-data');
-                    if (employees.length === 0) return elements.face.status.textContent = "لا يوجد موظفون مسجلون.";
+                    if (employees.length === 0) return elements.face.status.textContent = "Nessun dipendente registrato.";
 
                     const labeledDescriptors = employees.map(e => new faceapi.LabeledFaceDescriptors(e.name, [new Float32Array(e.faceDescriptor)]));
                     const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
@@ -335,19 +436,19 @@
                                 renderPinView();
                                 switchView('pin-view');
                             } else {
-                                elements.face.status.textContent = "جاري البحث، يرجى الانتظار...";
+                                elements.face.status.textContent = "Ricerca in corso, attendere prego...";
                             }
                         } else {
-                            elements.face.status.textContent = "جاري البحث عن وجه...";
+                            elements.face.status.textContent = "Ricerca volto in corso...";
                         }
                     }, 2000);
 
-                } catch (err) { showAlert("لا يمكن الوصول للكاميرا. الرجاء منح الإذن."); }
+                } catch (err) { showAlert("Impossibile accedere alla fotocamera. Per favore concedi il permesso."); }
             }
 
-            // --- PIN Logic ---
+            // --- Logica PIN ---
             function renderPinView() {
-                elements.pin.welcome.textContent = `أهلاً بك، ${state.recognizedEmployee.name}!`;
+                elements.pin.welcome.textContent = `Benvenuto, ${state.recognizedEmployee.name}!`;
                 elements.pin.inputsContainer.innerHTML = '';
                 for (let i = 0; i < 4; i++) {
                     elements.pin.inputsContainer.innerHTML += `<input type="password" maxlength="1" class="pin-input" data-index="${i}">`;
@@ -367,7 +468,7 @@
             elements.pin.form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const pin = Array.from(elements.pin.inputsContainer.querySelectorAll('input')).map(i => i.value).join('');
-                if (pin.length !== 4) return showAlert("الرجاء إدخال 4 أرقام.");
+                if (pin.length !== 4) return showAlert("Per favore inserisci 4 cifre.");
                 try {
                     state.loggedInEmployee = await api.post('employees/verify-pin', { employeeId: state.recognizedEmployee._id, pin });
                     await renderMainDashboard();
@@ -378,37 +479,37 @@
                 }
             });
             
-            // --- Verification Modal Logic ---
+            // --- Logica Modale Verifica ---
             function startVerificationInterval() {
                 clearInterval(verificationInterval);
                 verificationInterval = setInterval(async () => {
                     if (!elements.verification.modal.classList.contains('active')) return clearInterval(verificationInterval);
                     const detection = await faceapi.detectSingleFace(elements.verification.video, new faceapi.TinyFaceDetectorOptions());
                     if (detection) {
-                        elements.verification.status.textContent = "تم التعرف عليك. جاهز للتأكيد.";
+                        elements.verification.status.textContent = "Riconoscimento avvenuto. Pronto per conferma.";
                         elements.verification.confirmBtn.disabled = false;
                     } else {
-                        elements.verification.status.textContent = "الرجاء تثبيت الوجه أمام الكاميرا";
+                        elements.verification.status.textContent = "Per favore mantieni il volto davanti alla fotocamera";
                         elements.verification.confirmBtn.disabled = true;
                     }
                 }, 1500);
             }
 
             async function showVerificationModal() {
-                elements.verification.title.textContent = `التحقق لـ (${elements.main.actionBtn.textContent.trim()})`;
+                elements.verification.title.textContent = `Verifica per (${elements.main.actionBtn.textContent.trim()})`;
                 elements.verification.confirmBtn.disabled = true;
-                elements.verification.status.textContent = "الرجاء توجيه الوجه للكاميرا...";
+                elements.verification.status.textContent = "Per favore rivolgi il volto alla fotocamera...";
                 elements.verification.modal.classList.add('active');
                 try {
                     if (state.projects.length === 0) state.projects = await api.get('projects');
-                    elements.verification.projectSelect.innerHTML = '<option value="">-- اختر مشروع --</option>';
+                    elements.verification.projectSelect.innerHTML = '<option value="">-- Seleziona Progetto --</option>';
                     state.projects.forEach(p => elements.verification.projectSelect.innerHTML += `<option value="${p.name}">${p.name}</option>`);
                     const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
                     currentVideoStream = stream;
                     elements.verification.video.srcObject = stream;
                     startVerificationInterval();
                 } catch(err) {
-                    showAlert("لا يمكن الوصول للكاميرا.");
+                    showAlert("Impossibile accedere alla fotocamera.");
                     hideVerificationModal();
                 }
             }
@@ -433,15 +534,15 @@
             elements.verification.confirmBtn.addEventListener('click', async () => {
                 clearInterval(verificationInterval);
                 elements.verification.confirmBtn.disabled = true;
-                elements.verification.status.textContent = "جاري المعالجة، يرجى الثبات...";
+                elements.verification.status.textContent = "Elaborazione in corso, attendere prego...";
                 const detection = await getFaceDetectionWithRetries(elements.verification.video);
                 if (!detection) {
-                    showAlert("فشل التقاط صورة الوجه. الرجاء التأكد من ثبات الوجه أمام الكاميرا.");
+                    showAlert("Cattura del volto fallita. Per favore assicurati che il volto sia ben visibile davanti alla fotocamera.");
                     elements.verification.confirmBtn.disabled = false;
                     startVerificationInterval();
                     return;
                 }
-                elements.verification.status.textContent = "تم التقاط الصورة، جاري تحديد الموقع...";
+                elements.verification.status.textContent = "Volto catturato, rilevamento posizione in corso...";
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const now = new Date();
                     const entryData = {
@@ -455,28 +556,33 @@
                     };
                     try {
                         await api.post('timesheets/entry', entryData);
-                        showAlert("تم التسجيل بنجاح!", true);
+                        showAlert("Registrazione avvenuta con successo!", true);
                     } finally {
                         hideVerificationModal();
                         renderMainDashboard();
                     }
                 }, () => {
-                    showAlert("لا يمكن الحصول على الموقع. الرجاء تفعيل خدمات الموقع والمحاولة مرة أخرى.");
+                    showAlert("Impossibile ottenere la posizione. Per favore attiva i servizi di localizzazione e riprova.");
                     hideVerificationModal();
                 }, { enableHighAccuracy: true });
             });
 
-            // --- Reports Modal Logic ---
+            // --- Logica Modale Rapporti ---
             function getMonthDateRange(year, month) {
                 const startDate = new Date(year, month, 1);
-                const endDate = new Date(year, month + 1, 0); // Last day of the month
+                const endDate = new Date(year, month + 1, 0);
                 const formatDate = (date) => date.toISOString().split('T')[0];
-                return { startDate: formatDate(startDate), endDate: formatDate(endDate), daysInMonth: endDate.getDate() };
+                return { 
+                    startDate: formatDate(startDate), 
+                    endDate: formatDate(endDate), 
+                    daysInMonth: endDate.getDate() 
+                };
             }
 
             async function generateEmployeeReport() {
                 elements.reports.content.innerHTML = '<div class="loader"></div>';
                 elements.reports.exportButtons.classList.add('hidden');
+                
                 const year = parseInt(elements.reports.yearSelect.value);
                 const month = parseInt(elements.reports.monthSelect.value);
                 const { startDate, endDate, daysInMonth } = getMonthDateRange(year, month);
@@ -486,8 +592,8 @@
                     const records = await api.get(`timesheets?employeeName=${state.loggedInEmployee.name}&startDate=${startDate}&endDate=${endDate}`);
                     const recordsMap = new Map(records.map(r => [r.date.split('T')[0], r]));
 
-                    let totalOrd = 0;
-                    let totalStraord = 0;
+                    totalOrd = 0;
+                    totalStraord = 0;
                     
                     let tableRows = '';
                     for (let day = 1; day <= daysInMonth; day++) {
@@ -509,7 +615,7 @@
                             }).join('');
 
                             tableRows += `
-                                <tr class="text-center text-xs border-b">
+                                <tr class="text-center text-sm border-b">
                                     <td class="p-2 border-x">${formattedDate}</td>
                                     <td class="p-2 border-x">${dayName}</td>
                                     <td class="p-2 border-x">${record.entries[0]?.project || ''}</td>
@@ -525,27 +631,22 @@
                                 </tr>`;
                         } else {
                              tableRows += `
-                                <tr class="text-center text-xs border-b bg-gray-50 text-gray-400">
+                                <tr class="text-center text-sm border-b bg-gray-50 text-gray-400">
                                     <td class="p-2 border-x">${formattedDate}</td>
                                     <td class="p-2 border-x">${dayName}</td>
-                                    <td class="p-2 border-x" colspan="10"></td>
+                                    <td class="p-2 border-x" colspan="10">ASSENTE</td>
                                 </tr>`;
                         }
                     }
                     
-                    const monthSelect = elements.reports.monthSelect;
-                    const yearSelect = elements.reports.yearSelect;
-                    const monthName = monthSelect.options[monthSelect.selectedIndex].text;
-                    
+                    const monthName = elements.reports.monthSelect.options[month].text;
+                    document.getElementById('report-period').textContent = `Periodo: ${monthName} ${year}`;
+
                     elements.reports.content.innerHTML = `
-                        <div id="employee-report-to-export" class="p-2">
-                            <div class="text-center mb-4 hidden">
-                                <h3 class="text-lg font-bold">Dipendente: ${state.loggedInEmployee.name}</h3>
-                                <p>Mese: ${monthName} ${year}</p>
-                            </div>
+                        <div id="employee-report-to-export" class="p-4">
                             <div class="overflow-x-auto">
                                 <table class="w-full min-w-max" id="employee-report-table">
-                                    <thead class="bg-gray-100 text-xs sticky top-0">
+                                    <thead class="bg-gray-100 text-sm sticky top-0">
                                         <tr>
                                             <th class="p-2 border">Data</th>
                                             <th class="p-2 border">Giorno</th>
@@ -566,7 +667,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="mt-4 p-4 bg-gray-50 rounded-lg text-right font-bold text-sm">
+                            <div class="mt-4 p-4 bg-gray-50 rounded-lg text-right font-bold text-sm border-t">
                                 <p>Ore Ordinarie Totali: <span class="text-blue-700">${totalOrd.toFixed(2)}</span></p>
                                 <p class="text-red-700">Ore Straordinario Totali: <span class="text-red-700">${totalStraord.toFixed(2)}</span></p>
                             </div>
@@ -575,24 +676,22 @@
                     elements.reports.exportButtons.classList.remove('hidden');
 
                 } catch (error) {
-                    elements.reports.content.innerHTML = '<p class="text-center text-red-500">Falla nel caricare il report.</p>';
+                    elements.reports.content.innerHTML = '<p class="text-center text-red-500">Errore nel caricamento del rapporto.</p>';
                 }
             }
             
             function handleEmployeeExportPNG() {
                 const reportElement = document.getElementById('employee-report-to-export');
                 if (reportElement) {
-                    // Temporarily show the hidden title for the screenshot
-                    const titleElement = reportElement.querySelector('.hidden');
-                    titleElement.classList.remove('hidden');
-                    
-                    html2canvas(reportElement).then(canvas => {
-                        // Hide the title again after capture
-                        titleElement.classList.add('hidden');
-                        
+                    html2canvas(reportElement, {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        logging: false
+                    }).then(canvas => {
                         const link = document.createElement('a');
-                        link.download = `Riepilogo-${state.loggedInEmployee.name}-${new Date().toISOString().slice(0, 10)}.png`;
-                        link.href = canvas.toDataURL();
+                        link.download = `Riepilogo-${state.loggedInEmployee.name}-${elements.reports.monthSelect.options[elements.reports.monthSelect.value].text}-${elements.reports.yearSelect.value}.png`;
+                        link.href = canvas.toDataURL('image/png');
                         link.click();
                     });
                 }
@@ -600,26 +699,44 @@
 
             function handleEmployeeExportPDF() {
                 const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({ orientation: "landscape" });
+                const doc = new jsPDF({ 
+                    orientation: "landscape", 
+                    unit: "mm", 
+                    format: "a4" 
+                });
                 
-                const monthSelect = elements.reports.monthSelect;
-                const yearSelect = elements.reports.yearSelect;
-                const monthName = monthSelect.options[monthSelect.selectedIndex].text;
-                const year = yearSelect.value;
+                const monthName = elements.reports.monthSelect.options[elements.reports.monthSelect.value].text;
+                const year = elements.reports.yearSelect.value;
 
-                doc.text(`Riepilogo Mensile per: ${state.loggedInEmployee.name}`, 14, 15);
-                doc.text(`Mese: ${monthName} ${year}`, 14, 22);
-                
                 doc.autoTable({ 
                     html: '#employee-report-table',
-                    startY: 30,
+                    startY: 10,
                     theme: 'grid',
-                    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-                    styles: { font: 'helvetica', fontSize: 7 },
+                    headStyles: { 
+                        fillColor: [59, 130, 246], 
+                        textColor: 255,
+                        fontSize: 9
+                    },
+                    styles: { 
+                        font: 'helvetica', 
+                        fontSize: 7,
+                        cellPadding: 1.5
+                    },
                     columnStyles: {
-                        4: { cellWidth: 40 }, // GPS column
+                        4: { cellWidth: 35 },
+                        5: { cellWidth: 12 },
+                        6: { cellWidth: 12 },
+                        7: { cellWidth: 12 },
+                        8: { cellWidth: 12 },
                     }
                 });
+
+                const finalY = doc.lastAutoTable.finalY + 10;
+                doc.setFontSize(10);
+                doc.text(`Ore Ordinarie Totali: ${totalOrd.toFixed(2)}`, 140, finalY);
+                doc.setTextColor(220, 38, 38);
+                doc.text(`Ore Straordinario Totali: ${totalStraord.toFixed(2)}`, 180, finalY);
+                doc.setTextColor(0);
 
                 doc.save(`Riepilogo-${state.loggedInEmployee.name}-${monthName}-${year}.pdf`);
             }
@@ -645,7 +762,7 @@
             elements.reports.exportPngBtn.addEventListener('click', handleEmployeeExportPNG);
             elements.reports.exportPdfBtn.addEventListener('click', handleEmployeeExportPDF);
 
-            // --- Initialization ---
+            // --- Inizializzazione ---
             async function init() {
                 try {
                     const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
@@ -658,7 +775,7 @@
                     switchView('face-recognition-view');
                     startFaceRecognition();
                 } catch (error) {
-                    showAlert("فشل تحميل نماذج التعرف على الوجه. الرجاء تحديث الصفحة.");
+                    showAlert("Caricamento modelli riconoscimento facciale fallito. Per favore aggiorna la pagina.");
                 }
             }
 
@@ -678,4 +795,3 @@
     </script>
 </body>
 </html>
-
