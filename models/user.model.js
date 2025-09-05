@@ -1,29 +1,41 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const userSchema = mongoose.Schema(
-    {
-        name: { // تأكد من أنه يستخدم "name" وليس "username"
-            type: String,
-            required: true,
-        },
-        email: {
-            type: String,
-            required: true,
-            unique: true,
-        },
-        password: {
-            type: String,
-            required: true,
-        },
+const UserSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: [true, 'الرجاء إدخال الاسم'],
     },
-    {
-        timestamps: true,
-    }
-);
+    email: {
+        type: String,
+        required: [true, 'الرجاء إدخال البريد الإلكتروني'],
+        unique: true,
+        match: [
+            /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+            'الرجاء إدخال بريد إلكتروني صالح',
+        ],
+    },
+    // -- التعديل الأساسي --
+    // جعل اسم المستخدم حقلاً إجباريًا وفريدًا لمنع قيمة null
+    username: {
+        type: String,
+        required: [true, 'اسم المستخدم مطلوب'],
+        unique: true,
+    },
+    password: {
+        type: String,
+        required: [true, 'الرجاء إدخال كلمة المرور'],
+        minlength: 6,
+        select: false, // لن يتم إرجاع كلمة المرور عند الاستعلام عن المستخدمين
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+});
 
-// تشفير كلمة المرور تلقائيًا قبل حفظها في قاعدة البيانات
-userSchema.pre('save', async function (next) {
+// تشفير كلمة المرور قبل الحفظ
+UserSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {
         next();
     }
@@ -31,13 +43,9 @@ userSchema.pre('save', async function (next) {
     this.password = await bcrypt.hash(this.password, salt);
 });
 
-// إضافة دالة لمقارنة كلمة المرور المدخلة بالكلمة المشفرة
-userSchema.methods.matchPassword = async function (enteredPassword) {
+// دالة لمقارنة كلمة المرور المدخلة بالكلمة المشفرة في قاعدة البيانات
+UserSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
-
+module.exports = mongoose.model('User', UserSchema);
