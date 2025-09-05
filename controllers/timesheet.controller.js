@@ -146,21 +146,29 @@ const updateTimesheet = asyncHandler(async (req, res) => {
 function calculateDayHours(entries, dateObject) {
     const standardDaySeconds = 8 * 3600;
     let totalSeconds = 0;
+    let lastCheckInTime = null;
 
     const sortedEntries = [...entries].sort((a, b) => a.time.localeCompare(b.time));
     
-    for (let i = 0; i < sortedEntries.length; i += 2) {
-        const checkIn = sortedEntries[i];
-        const checkOut = sortedEntries[i + 1];
-        if (checkIn && checkOut && checkIn.type === 'check-in' && checkOut.type === 'check-out') {
-             const start = new Date(`1970-01-01T${checkIn.time}:00`);
-             let end = new Date(`1970-01-01T${checkOut.time}:00`);
-             if (end < start) {
-                 end.setDate(end.getDate() + 1);
-             }
-             totalSeconds += (end - start) / 1000;
+    sortedEntries.forEach(entry => {
+        if (entry.type === 'check-in') {
+            // If there's a new check-in, it becomes the starting point for the next interval.
+            // This correctly handles cases of two check-ins in a row (the last one is used).
+            lastCheckInTime = new Date(`1970-01-01T${entry.time}:00`);
+        } else if (entry.type === 'check-out' && lastCheckInTime) {
+            // If we have a check-out and a preceding check-in to pair it with.
+            let checkOutTime = new Date(`1970-01-01T${entry.time}:00`);
+            
+            if (checkOutTime < lastCheckInTime) {
+                checkOutTime.setDate(checkOutTime.getDate() + 1); // Handle overnight work
+            }
+            
+            totalSeconds += (checkOutTime - lastCheckInTime) / 1000;
+            
+            // Reset lastCheckInTime so it cannot be used again for another check-out.
+            lastCheckInTime = null; 
         }
-    }
+    });
 
     const dayOfWeek = dateObject.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
