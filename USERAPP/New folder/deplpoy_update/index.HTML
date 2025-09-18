@@ -129,7 +129,7 @@
                             <p class="text-sm text-gray-500">Stato Attuale</p>
                             <p id="main-status-text" class="font-bold text-lg px-3 py-1 rounded-full"></p>
                         </div>
-                        <div class="border-t sm:border-t-0 sm:border-r w-full sm:w-auto pt-4 sm:pt-0 sm:pr-4">
+                        <div class="border-t sm:border-t-0 sm:border-l border-gray-200 w-full sm:w-auto pt-4 sm:pt-0 sm:pl-4 ml-4">
                             <p class="text-sm text-gray-500">Ore Totali di Oggi</p>
                             <p id="main-total-hours" class="font-bold text-2xl">0.00</p>
                         </div>
@@ -492,20 +492,24 @@
             elements.verification.confirmBtn.addEventListener('click', async () => {
                 clearInterval(verificationInterval);
                 elements.verification.confirmBtn.disabled = true;
-                elements.verification.status.textContent = "Elaborazione, attendere...";
+                elements.verification.status.textContent = "Elaborazione in corso, attendere prego...";
                 const detection = await getFaceDetectionWithRetries(elements.verification.video);
                 if (!detection) {
-                    showAlert("Impossibile catturare l'immagine del viso. Assicurarsi di essere fermi davanti alla fotocamera.");
+                    showAlert("Impossibile catturare l'immagine del viso. Assicurati di essere fermo davanti alla telecamera.");
                     elements.verification.confirmBtn.disabled = false;
                     startVerificationInterval();
                     return;
                 }
-                elements.verification.status.textContent = "Immagine catturata, rilevamento posizione...";
+                elements.verification.status.textContent = "Immagine catturata, rilevamento posizione in corso...";
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    
                     const entryData = {
                         employeeName: state.loggedInEmployee.name,
-                        date: now.toISOString().split('T')[0],
+                        date: `${year}-${month}-${day}`,
                         time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
                         location: { lat: position.coords.latitude, lon: position.coords.longitude },
                         faceDescriptor: Array.from(detection.descriptor),
@@ -527,10 +531,10 @@
 
             // --- Reports Modal Logic ---
             function getMonthDateRange(year, month) {
-                const startDate = new Date(year, month, 1);
-                const endDate = new Date(year, month + 1, 0); // Last day of the month
-                const formatDate = (date) => date.toISOString().split('T')[0];
-                return { startDate: formatDate(startDate), endDate: formatDate(endDate), daysInMonth: endDate.getDate() };
+                const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+                const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                return { startDate, endDate, daysInMonth };
             }
 
             async function generateEmployeeReport() {
@@ -543,7 +547,7 @@
 
                 try {
                     const records = await api.get(`timesheets?employeeName=${state.loggedInEmployee.name}&startDate=${startDate}&endDate=${endDate}`);
-                    const recordsMap = new Map(records.map(r => [r.date.split('T')[0], r]));
+                    const recordsMap = new Map(records.map(r => [r.date, r]));
 
                     let totalOrd = 0;
                     let totalStraord = 0;
@@ -551,7 +555,7 @@
                     let tableRows = '';
                     for (let day = 1; day <= daysInMonth; day++) {
                         const date = new Date(year, month, day);
-                        const dateString = date.toISOString().split('T')[0];
+                        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const dayName = italianDays[date.getDay()];
                         const formattedDate = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`;
                         
@@ -700,7 +704,6 @@
                 const year = yearSelect.value;
                 const employeeName = state.loggedInEmployee.name;
 
-                // --- Header ---
                 doc.setFontSize(18);
                 doc.setFont('helvetica', 'bold');
                 doc.text('Evolution Mec Srls', 14, 20);
@@ -716,32 +719,15 @@
                 doc.setLineWidth(0.5);
                 doc.line(14, 38, 196, 38);
 
-                // --- Table ---
                 doc.autoTable({
                     html: '#employee-report-table',
                     startY: 45,
                     theme: 'grid',
-                    headStyles: {
-                        fillColor: [230, 230, 230],
-                        textColor: [30, 30, 30],
-                        fontStyle: 'bold',
-                        lineWidth: 0.1,
-                        lineColor: [200, 200, 200]
-                    },
-                    styles: {
-                        fontSize: 7,
-                        cellPadding: 1.5,
-                        lineWidth: 0.1,
-                        lineColor: [200, 200, 200],
-                        valign: 'top'
-                    },
-                     columnStyles: {
-                        10: { fontStyle: 'bold', textColor: [200, 0, 0] }, // Straord. column
-                        11: { fontStyle: 'bold' } // Totale column
-                    }
+                    headStyles: { fillColor: [230, 230, 230], textColor: [30, 30, 30], fontStyle: 'bold', lineWidth: 0.1, lineColor: [200, 200, 200] },
+                    styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.1, lineColor: [200, 200, 200], valign: 'top' },
+                    columnStyles: { 10: { fontStyle: 'bold', textColor: [200, 0, 0] }, 11: { fontStyle: 'bold' } }
                 });
 
-                // --- Footer ---
                 const finalY = doc.lastAutoTable.finalY || 200;
                 const totalsElement = reportElement.querySelector('footer .font-bold');
                 const totalOrdText = totalsElement.children[0].textContent;
@@ -758,8 +744,6 @@
                 doc.setLineWidth(0.2);
                 doc.line(140, finalY + 30, 196, finalY + 30);
 
-
-                // --- Save PDF ---
                 doc.save(`Riepilogo-${employeeName}-${monthName}-${year}.pdf`);
             }
             
@@ -784,7 +768,6 @@
             elements.reports.exportPngBtn.addEventListener('click', handleEmployeeExportPNG);
             elements.reports.exportPdfBtn.addEventListener('click', handleEmployeeExportPDF);
 
-            // --- Initialization ---
             async function init() {
                 try {
                     const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
