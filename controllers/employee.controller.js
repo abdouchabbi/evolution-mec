@@ -14,9 +14,9 @@ faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 // تأكد من تحميل الموديلات مرة واحدة عند بدء تشغيل السيرفر
 // (ضع هذا الجزء خارج الدوال)
 Promise.all([
-    faceapi.nets.ssdMobilenetv1.loadFromDisk('./models'),
-    faceapi.nets.faceLandmark68Net.loadFromDisk('./models'),
-    faceapi.nets.faceRecognitionNet.loadFromDisk('./models')
+    faceapi.nets.ssdMobilenetv1.loadFromDisk('./face-api-models'),
+    faceapi.nets.faceLandmark68Net.loadFromDisk('./face-api-models'),
+    faceapi.nets.faceRecognitionNet.loadFromDisk('./face-api-models')
 ]).then(() => console.log('FaceAPI models loaded successfully on server.'));
 
 
