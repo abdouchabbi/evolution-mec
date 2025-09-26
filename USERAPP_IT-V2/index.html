@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="it" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applicazione Dipendenti</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; }
+        .loader {
+            border: 4px solid #f3f3f3; border-radius: 50%;
+            border-top: 4px solid #4f46e5; width: 40px; height: 40px;
+            animation: spin 2s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .pin-input {
+            width: 3rem; height: 3rem; text-align: center; font-size: 1.5rem;
+            border: 2px solid #d1d5db; border-radius: 0.5rem;
+            margin: 0 0.25rem;
+        }
+        .view { display: none; }
+        .view.active { display: flex; }
+        
+        @media print {
+            body * { visibility: hidden; }
+            #report-content, #report-content * { visibility: visible; }
+            #reports-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: visible;
+                background: white !important;
+            }
+            .modal-content {
+                box-shadow: none;
+                border: none;
+                height: auto;
+                margin: 0;
+                max-width: 100%;
+            }
+            .no-print { display: none !important; }
+        }
+
+        /* --- Ideal PDF-like View on Mobile with Zoom & Pan --- */
+        @media (max-width: 768px) {
+            #reports-modal {
+                padding: 0; /* Full screen modal */
+            }
+            #reports-modal .modal-content {
+                min-height: 100vh;
+                border-radius: 0;
+                box-shadow: none;
+            }
+             /* Remove horizontal padding from the content area */
+             #reports-modal .p-4.sm\\:p-6.flex-grow {
+                padding: 0.5rem 0;
+            }
+            /* This container makes the table scrollable horizontally */
+            .report-table-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            }
+            /* Use fixed layout for consistent columns and a wide width */
+            #employee-report-table {
+                table-layout: fixed;
+                min-width: 900px; /* A fixed width similar to an A4 paper */
+                width: 100%;
+            }
+            /* Allow text to wrap within cells if needed */
+            #employee-report-table td {
+                word-break: break-word;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="loading-view" class="view active fixed inset-0 bg-black bg-opacity-75 z-[100] flex-col items-center justify-center">
+        <div class="loader"></div>
+        <p class="text-white text-lg mt-4" id="loading-message">Caricamento del sistema...</p>
+    </div>
+
+    <div id="face-recognition-view" class="view items-center justify-center min-h-screen bg-gray-200 p-4">
+        <div class="w-full max-w-md p-6 sm:p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
+            <h2 class="text-2xl font-bold text-gray-700">Si prega di guardare la fotocamera</h2>
+            <!-- Circular Camera View -->
+            <div class="w-64 h-64 rounded-full overflow-hidden border-4 border-white shadow-lg mx-auto my-4 relative bg-gray-200">
+                <video id="face-video" class="w-full h-full object-cover" autoplay muted playsinline></video>
+            </div>
+            <p id="face-status" class="text-lg font-semibold text-gray-600 h-8">Ricerca viso in corso...</p>
+        </div>
+    </div>
+
+    <div id="pin-view" class="view items-center justify-center min-h-screen bg-gray-200 p-4">
+        <div class="w-full max-w-md p-6 sm:p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
+            <h2 id="pin-welcome-message" class="text-2xl font-bold text-gray-700">Benvenuto!</h2>
+            <p class="text-gray-600">Inserisci il tuo codice PIN</p>
+            <form id="pin-form">
+                <div id="pin-inputs" class="flex justify-center my-4">
+                </div>
+                <button type="submit" class="w-full px-4 py-2 text-lg font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Verifica</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-app-view" class="view w-full min-h-screen p-4 justify-center items-start">
+        <div class="w-full max-w-2xl">
+            <header class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 id="main-welcome-message" class="text-xl sm:text-2xl font-bold text-gray-800">Ciao!</h1>
+                </div>
+                <button id="logout-btn" class="text-sm text-red-600 hover:underline">Logout</button>
+            </header>
+            <main class="bg-white p-6 rounded-lg shadow-md">
+                <div class="text-center">
+                    <h2 class="text-xl font-semibold mb-2">Dashboard di Oggi</h2>
+                    <p id="main-date" class="text-gray-500 mb-4"></p>
+                    <div class="flex flex-col sm:flex-row justify-around items-center bg-gray-50 p-4 rounded-lg mb-6 space-y-4 sm:space-y-0">
+                        <div>
+                            <p class="text-sm text-gray-500">Stato Attuale</p>
+                            <p id="main-status-text" class="font-bold text-lg px-3 py-1 rounded-full"></p>
+                        </div>
+                        <div class="border-t sm:border-t-0 sm:border-r w-full sm:w-auto pt-4 sm:pt-0 sm:pr-4">
+                            <p class="text-sm text-gray-500">Ore Totali di Oggi</p>
+                            <p id="main-total-hours" class="font-bold text-2xl">0.00</p>
+                        </div>
+                    </div>
+                    <button id="main-action-btn" class="bg-indigo-600 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:bg-indigo-700 transition text-lg w-full md:w-auto">
+                        Timbra Ora
+                    </button>
+                </div>
+                <div class="mt-8 border-t pt-4">
+                    <h3 class="font-semibold mb-2">Registro di Oggi</h3>
+                    <div id="main-daily-log">
+                        <p class="text-center text-gray-500">Caricamento registro...</p>
+                    </div>
+                </div>
+            </main>
+            <footer class="mt-6">
+                <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                    <h2 class="text-xl font-semibold mb-4">Report Ore di Lavoro</h2>
+                    <button id="open-reports-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">Vedi i Miei Report</button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <div id="alert-modal" class="fixed inset-0 bg-gray-800 bg-opacity-50 hidden items-center justify-center z-[60] p-4">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
+            <p id="alert-message"></p>
+            <div class="mt-4 flex justify-end">
+                <button id="alert-ok-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="verification-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
+            <h3 id="verification-title" class="text-lg font-bold mb-4">Verifica Identità</h3>
+             <!-- Circular Camera View for Verification -->
+            <div class="w-48 h-48 rounded-full overflow-hidden border-4 border-white shadow-lg mx-auto mb-4 relative bg-gray-200">
+                <video id="verification-video" class="w-full h-full object-cover" autoPlay muted playsInline></video>
+            </div>
+            <p id="verification-status" class="mb-4 h-6 font-semibold">Punta il viso verso la fotocamera...</p>
+            <div class="space-y-4 text-left mb-4">
+                <div>
+                    <label for="project-select" class="block text-sm font-medium text-gray-700">Progetto (opzionale)</label>
+                    <select id="project-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        <option value="">-- Seleziona progetto --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="description-input" class="block text-sm font-medium text-gray-700">Note (opzionale)</label>
+                    <input type="text" id="description-input" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <button id="verification-cancel-btn" class="w-full bg-gray-500 text-white py-2 rounded-lg">Annulla</button>
+                <button id="verification-confirm-btn" disabled class="w-full bg-green-500 text-white py-2 rounded-lg disabled:bg-gray-400">Conferma</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="reports-modal" class="fixed inset-0 bg-gray-100 z-50 overflow-y-auto hidden p-4 sm:p-8">
+        <div class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-auto flex flex-col min-h-[85vh]">
+            
+            <div class="p-4 sm:p-6 border-b flex justify-between items-center no-print">
+                <h2 class="text-xl font-semibold text-gray-800">Riepilogo Mensile</h2>
+                <button id="reports-close-btn" class="text-gray-500 hover:text-red-600 transition-colors p-1 rounded-full">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="p-4 sm:p-6 flex-grow">
+                <div class="flex flex-col sm:flex-row items-end gap-4 mb-6 pb-4 border-b no-print">
+                    <div class="flex-grow w-full">
+                        <label for="reports-month-select" class="block text-sm font-medium text-gray-700">Mese:</label>
+                        <select id="reports-month-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></select>
+                    </div>
+                    <div class="flex-grow w-full">
+                        <label for="reports-year-select" class="block text-sm font-medium text-gray-700">Anno:</label>
+                        <select id="reports-year-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></select>
+                    </div>
+                    <button id="reports-view-btn" class="bg-blue-600 text-white px-5 py-2 rounded-lg w-full sm:w-auto hover:bg-blue-700 shadow-sm">Mostra</button>
+                </div>
+                
+                <div id="report-content">
+                    <!-- Report will be injected here -->
+                </div>
+            </div>
+
+            <div class="p-4 sm:p-6 mt-auto border-t flex items-center justify-end gap-4 no-print bg-gray-50 rounded-b-lg">
+                <div id="report-export-buttons" class="hidden">
+                     <button id="export-png-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">Esporta PNG</button>
+                     <button id="export-pdf-btn" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700">Esporta PDF</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const API_URL = 'http://localhost:5000/api';
+            let faceApiModelsLoaded = false;
+            let recognitionInterval = null;
+            let verificationInterval = null;
+            let currentVideoStream = null;
+
+            // --- State Management ---
+            const state = {
+                recognizedEmployee: null,
+                loggedInEmployee: null,
+                todayData: null,
+                projects: [],
+            };
+
+            // --- DOM Elements ---
+            const elements = {
+                views: document.querySelectorAll('.view'),
+                loading: {
+                    view: document.getElementById('loading-view'),
+                    message: document.getElementById('loading-message'),
+                },
+                face: {
+                    view: document.getElementById('face-recognition-view'),
+                    video: document.getElementById('face-video'),
+                    status: document.getElementById('face-status'),
+                },
+                pin: {
+                    view: document.getElementById('pin-view'),
+                    welcome: document.getElementById('pin-welcome-message'),
+                    form: document.getElementById('pin-form'),
+                    inputsContainer: document.getElementById('pin-inputs'),
+                },
+                main: {
+                    view: document.getElementById('main-app-view'),
+                    welcome: document.getElementById('main-welcome-message'),
+                    date: document.getElementById('main-date'),
+                    statusText: document.getElementById('main-status-text'),
+                    totalHours: document.getElementById('main-total-hours'),
+                    actionBtn: document.getElementById('main-action-btn'),
+                    dailyLog: document.getElementById('main-daily-log'),
+                    logoutBtn: document.getElementById('logout-btn'),
+                },
+                alert: {
+                    modal: document.getElementById('alert-modal'),
+                    message: document.getElementById('alert-message'),
+                    okBtn: document.getElementById('alert-ok-btn'),
+                },
+                verification: {
+                    modal: document.getElementById('verification-modal'),
+                    title: document.getElementById('verification-title'),
+                    video: document.getElementById('verification-video'),
+                    status: document.getElementById('verification-status'),
+                    projectSelect: document.getElementById('project-select'),
+                    descriptionInput: document.getElementById('description-input'),
+                    cancelBtn: document.getElementById('verification-cancel-btn'),
+                    confirmBtn: document.getElementById('verification-confirm-btn'),
+                },
+                reports: {
+                    modal: document.getElementById('reports-modal'),
+                    openBtn: document.getElementById('open-reports-btn'),
+                    closeBtn: document.getElementById('reports-close-btn'),
+                    monthSelect: document.getElementById('reports-month-select'),
+                    yearSelect: document.getElementById('reports-year-select'),
+                    viewBtn: document.getElementById('reports-view-btn'),
+                    content: document.getElementById('report-content'),
+                    exportButtons: document.getElementById('report-export-buttons'),
+                    exportPngBtn: document.getElementById('export-png-btn'),
+                    exportPdfBtn: document.getElementById('export-pdf-btn'),
+                }
+            };
+
+            // --- API Layer ---
+            const api = {
+                async request(endpoint, method = 'GET', body = null) {
+                    try {
+                        const response = await fetch(`${API_URL}/${endpoint}`, {
+                            method,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: body ? JSON.stringify(body) : null,
+                        });
+                        if (response.status === 204) return null;
+                        
+                        const responseText = await response.text();
+                        
+                        if (!response.ok) {
+                            let errorMessage = `Errore del server (${response.status})`;
+                            try {
+                                const errorJson = JSON.parse(responseText);
+                                if (errorJson.message) {
+                                    errorMessage = errorJson.message;
+                                }
+                            } catch (e) {
+                                // Not a JSON error response, stick with the generic message.
+                            }
+                            throw new Error(errorMessage);
+                        }
+                        
+                        try {
+                            return JSON.parse(responseText);
+                        } catch (e) {
+                            console.error("Risposta non JSON dal server:", responseText);
+                            throw new Error("Il server ha restituito una risposta in un formato non valido.");
+                        }
+                    } catch (error) {
+                        showAlert(error.message.includes('fetch') ? 'Connessione al server non riuscita' : error.message);
+                        throw error;
+                    }
+                },
+                get(endpoint) { return this.request(endpoint, 'GET'); },
+                post(endpoint, body) { return this.request(endpoint, 'POST', body); }
+            };
+
+            const adjustTime = (timeStr) => {
+                if (!timeStr || !/^\d{2}:\d{2}$/.test(timeStr)) return '';
+                let [hours, minutes] = timeStr.split(':').map(Number);
+                if (minutes > 0 && minutes <= 30) {
+                    minutes = 30;
+                } else if (minutes > 30) {
+                    minutes = 0;
+                    hours = (hours + 1) % 24;
+                }
+                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            };
+
+            // --- View & State Management ---
+            function switchView(viewId) {
+                elements.views.forEach(v => v.classList.remove('active'));
+                document.getElementById(viewId).classList.add('active');
+            }
+
+            // --- Alert Modal ---
+            function showAlert(message, isSuccess = false) {
+                elements.alert.message.textContent = message;
+                elements.alert.message.className = isSuccess ? 'text-green-600' : 'text-red-600';
+                elements.alert.modal.classList.remove('hidden');
+                elements.alert.modal.classList.add('flex');
+            }
+            elements.alert.okBtn.addEventListener('click', () => {
+                elements.alert.modal.classList.add('hidden');
+                elements.alert.modal.classList.remove('flex');
+            });
+
+            // --- Main App Logic ---
+            async function renderMainDashboard() {
+                elements.main.welcome.textContent = `Ciao, ${state.loggedInEmployee.name}!`;
+                elements.main.date.textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                elements.main.dailyLog.innerHTML = `<p class="text-center text-gray-500">Caricamento registro...</p>`;
+
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    const records = await api.get(`timesheets?employeeName=${state.loggedInEmployee.name}&startDate=${today}&endDate=${today}`);
+                    state.todayData = records.length > 0 ? records[0] : null;
+
+                    const lastEntry = state.todayData?.entries?.[state.todayData.entries.length - 1];
+                    const currentStatus = !lastEntry || lastEntry.type === 'check-out' ? 'out' : 'in';
+                    
+                    elements.main.statusText.textContent = currentStatus === 'in' ? 'Entrato' : 'Uscito';
+                    elements.main.statusText.className = `font-bold text-lg px-3 py-1 rounded-full ${currentStatus === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+                    elements.main.actionBtn.textContent = `${currentStatus === 'in' ? 'Timbra Uscita' : 'Timbra Entrata'}`;
+                    elements.main.totalHours.textContent = (state.todayData?.totalHours || 0).toFixed(2);
+
+                    if (state.todayData && state.todayData.entries.length > 0) {
+                        elements.main.dailyLog.innerHTML = `<ul class="space-y-2 text-sm">${state.todayData.entries.map(entry => `
+                            <li class="flex justify-between p-2 bg-gray-50 rounded">
+                                <span>${entry.type === 'check-in' ? 'Entrata' : 'Uscita'} alle: <strong>${entry.time}</strong></span>
+                                <span class="text-gray-500">${entry.project || ''}</span>
+                            </li>`).join('')}</ul>`;
+                    } else {
+                        elements.main.dailyLog.innerHTML = `<p class="text-center text-gray-500">Nessuna timbratura per oggi.</p>`;
+                    }
+
+                } catch (error) {
+                    elements.main.dailyLog.innerHTML = `<p class="text-center text-red-500">Errore nel caricamento dei dati di oggi.</p>`;
+                }
+            }
+
+            // --- Face Recognition Logic ---
+            async function startFaceRecognition() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                    elements.face.video.srcObject = stream;
+                    
+                    const employees = await api.get('employees/face-login-data');
+                    if (employees.length === 0) return elements.face.status.textContent = "Nessun dipendente registrato.";
+
+                    const labeledDescriptors = employees.map(e => new faceapi.LabeledFaceDescriptors(e.name, [new Float32Array(e.faceDescriptor)]));
+                    const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+
+                    recognitionInterval = setInterval(async () => {
+                        const detection = await faceapi.detectSingleFace(elements.face.video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                        if (detection) {
+                            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                            if (bestMatch.label !== 'unknown') {
+                                clearInterval(recognitionInterval);
+                                state.recognizedEmployee = employees.find(e => e.name === bestMatch.label);
+                                renderPinView();
+                                switchView('pin-view');
+                            } else {
+                                elements.face.status.textContent = "Ricerca in corso, attendere...";
+                            }
+                        } else {
+                            elements.face.status.textContent = "Ricerca viso in corso...";
+                        }
+                    }, 2000);
+
+                } catch (err) { showAlert("Impossibile accedere alla fotocamera. Si prega di concedere l'autorizzazione."); }
+            }
+
+            // --- PIN Logic ---
+            function renderPinView() {
+                elements.pin.welcome.textContent = `Benvenuto, ${state.recognizedEmployee.name}!`;
+                elements.pin.inputsContainer.innerHTML = '';
+                for (let i = 0; i < 4; i++) {
+                    elements.pin.inputsContainer.innerHTML += `<input type="password" maxlength="1" class="pin-input" data-index="${i}">`;
+                }
+                const pinInputs = elements.pin.inputsContainer.querySelectorAll('input');
+                pinInputs.forEach((input, index) => {
+                    input.addEventListener('input', () => {
+                        if (input.value && index < 3) pinInputs[index + 1].focus();
+                    });
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === "Backspace" && !input.value && index > 0) pinInputs[index - 1].focus();
+                    });
+                });
+                pinInputs[0].focus();
+            }
+
+            elements.pin.form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const pin = Array.from(elements.pin.inputsContainer.querySelectorAll('input')).map(i => i.value).join('');
+                if (pin.length !== 4) return showAlert("Inserisci 4 cifre.");
+                try {
+                    state.loggedInEmployee = await api.post('employees/verify-pin', { employeeId: state.recognizedEmployee._id, pin });
+                    await renderMainDashboard();
+                    switchView('main-app-view');
+                } catch (error) {
+                    elements.pin.form.reset();
+                    elements.pin.inputsContainer.querySelectorAll('input')[0].focus();
+                }
+            });
+            
+            // --- Verification Modal Logic ---
+            function startVerificationInterval() {
+                clearInterval(verificationInterval);
+                verificationInterval = setInterval(async () => {
+                    if (elements.verification.modal.classList.contains('hidden')) return clearInterval(verificationInterval);
+                    const detection = await faceapi.detectSingleFace(elements.verification.video, new faceapi.TinyFaceDetectorOptions());
+                    if (detection) {
+                        elements.verification.status.textContent = "Viso rilevato. Pronto per confermare.";
+                        elements.verification.confirmBtn.disabled = false;
+                    } else {
+                        elements.verification.status.textContent = "Mantieni il viso fermo davanti alla fotocamera";
+                        elements.verification.confirmBtn.disabled = true;
+                    }
+                }, 1500);
+            }
+
+            async function showVerificationModal() {
+                elements.verification.title.textContent = `Verifica per (${elements.main.actionBtn.textContent.trim()})`;
+                elements.verification.confirmBtn.disabled = true;
+                elements.verification.status.textContent = "Punta il viso verso la fotocamera...";
+                elements.verification.modal.classList.remove('hidden');
+                elements.verification.modal.classList.add('flex');
+                try {
+                    if (state.projects.length === 0) state.projects = await api.get('projects');
+                    elements.verification.projectSelect.innerHTML = '<option value="">-- Seleziona progetto --</option>';
+                    state.projects.forEach(p => elements.verification.projectSelect.innerHTML += `<option value="${p.name}">${p.name}</option>`);
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                    currentVideoStream = stream;
+                    elements.verification.video.srcObject = stream;
+                    startVerificationInterval();
+                } catch(err) {
+                    showAlert("Impossibile accedere alla fotocamera.");
+                    hideVerificationModal();
+                }
+            }
+
+            function hideVerificationModal() {
+                clearInterval(verificationInterval);
+                if(currentVideoStream) currentVideoStream.getTracks().forEach(track => track.stop());
+                elements.verification.modal.classList.add('hidden');
+                elements.verification.modal.classList.remove('flex');
+                elements.verification.descriptionInput.value = '';
+                elements.verification.projectSelect.value = '';
+            }
+
+            async function getFaceDetectionWithRetries(videoElement, retries = 3, delay = 200) {
+                for (let i = 0; i < retries; i++) {
+                    const detection = await faceapi.detectSingleFace(videoElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                    if (detection) return detection;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+                return null;
+            }
+
+            elements.verification.confirmBtn.addEventListener('click', async () => {
+                clearInterval(verificationInterval);
+                elements.verification.confirmBtn.disabled = true;
+                elements.verification.status.textContent = "Elaborazione, attendere...";
+                const detection = await getFaceDetectionWithRetries(elements.verification.video);
+                if (!detection) {
+                    showAlert("Impossibile catturare l'immagine del viso. Assicurarsi di essere fermi davanti alla fotocamera.");
+                    elements.verification.confirmBtn.disabled = false;
+                    startVerificationInterval();
+                    return;
+                }
+                elements.verification.status.textContent = "Immagine catturata, rilevamento posizione...";
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const now = new Date();
+                    const entryData = {
+                        employeeName: state.loggedInEmployee.name,
+                        date: now.toISOString().split('T')[0],
+                        time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+                        location: { lat: position.coords.latitude, lon: position.coords.longitude },
+                        faceDescriptor: Array.from(detection.descriptor),
+                        project: elements.verification.projectSelect.value,
+                        description: elements.verification.descriptionInput.value,
+                    };
+                    try {
+                        await api.post('timesheets/entry', entryData);
+                        showAlert("Timbratura registrata con successo!", true);
+                    } finally {
+                        hideVerificationModal();
+                        renderMainDashboard();
+                    }
+                }, () => {
+                    showAlert("Impossibile ottenere la posizione. Attiva i servizi di localizzazione e riprova.");
+                    hideVerificationModal();
+                }, { enableHighAccuracy: true });
+            });
+
+            // --- Reports Modal Logic ---
+            function getMonthDateRange(year, month) {
+                const startDate = new Date(year, month, 1);
+                const endDate = new Date(year, month + 1, 0); // Last day of the month
+                const formatDate = (date) => date.toISOString().split('T')[0];
+                return { startDate: formatDate(startDate), endDate: formatDate(endDate), daysInMonth: endDate.getDate() };
+            }
+
+            async function generateEmployeeReport() {
+                elements.reports.content.innerHTML = '<div class="loader"></div>';
+                elements.reports.exportButtons.classList.add('hidden');
+                const year = parseInt(elements.reports.yearSelect.value);
+                const month = parseInt(elements.reports.monthSelect.value);
+                const { startDate, endDate, daysInMonth } = getMonthDateRange(year, month);
+                const italianDays = ["DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB"];
+
+                try {
+                    const [records, holidays, leaveRecords] = await Promise.all([
+                        api.get(`timesheets?employeeName=${state.loggedInEmployee.name}&startDate=${startDate}&endDate=${endDate}`),
+                        api.get('holidays'),
+                        api.get(`leave?employeeName=${state.loggedInEmployee.name}`)
+                    ]);
+
+                    const recordsMap = new Map(records.map(r => [new Date(r.date).toISOString().split('T')[0], r]));
+                    const holidaysMap = new Map(holidays.map(h => [new Date(h.date).toISOString().split('T')[0], h.name]));
+                    
+                    const leaveDatesSet = new Set();
+                    if (leaveRecords) {
+                        leaveRecords.forEach(leave => {
+                            let currentDate = new Date(leave.startDate);
+                            const lastDate = new Date(leave.endDate);
+                            while (currentDate <= lastDate) {
+                                leaveDatesSet.add(currentDate.toISOString().split('T')[0]);
+                                currentDate.setDate(currentDate.getDate() + 1);
+                            }
+                        });
+                    }
+
+                    let totalOrd = 0;
+                    let totalStraord = 0;
+                    
+                    let tableRows = '';
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const date = new Date(Date.UTC(year, month, day)); // Use UTC to prevent timezone issues
+                        const dateString = date.toISOString().split('T')[0];
+                        const dayName = italianDays[date.getUTCDay()];
+                        const formattedDate = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`;
+                        
+                        const record = recordsMap.get(dateString);
+                        const holidayName = holidaysMap.get(dateString);
+                        const isOnLeave = leaveDatesSet.has(dateString);
+                        
+                        if (holidayName) {
+                            tableRows += `<tr class="bg-blue-50 text-center"><td class="p-2 border">${formattedDate}</td><td class="p-2 border">${dayName}</td><td class="p-2 border font-semibold" colspan="10">${holidayName}</td></tr>`;
+                        } else if (isOnLeave) {
+                            tableRows += `<tr class="bg-green-50 text-center"><td class="p-2 border">${formattedDate}</td><td class="p-2 border">${dayName}</td><td class="p-2 border font-semibold" colspan="10">Permesso / Ferie</td></tr>`;
+                        }
+                        else if (record) {
+                            totalOrd += record.regularHours || 0;
+                            totalStraord += record.overtimeHours || 0;
+                            
+                            const locationAndTimesHtml = record.entries.map(e => {
+                                const locationName = e.location?.name || 'N/D';
+                                const entryType = e.type === 'check-in' ? 'E' : 'U';
+                                return `${locationName} - ${e.time} (${entryType})`;
+                            }).join('<br>');
+                            
+                            const projectsHtml = [...new Set(record.entries.map(e => e.project).filter(Boolean))].join(', ');
+                            const descriptionsHtml = [...new Set(record.entries.map(e => e.description).filter(Boolean))].join(', ');
+
+                            const checkIns = record.entries.filter(e => e.type === 'check-in');
+                            const checkOuts = record.entries.filter(e => e.type === 'check-out');
+
+                            const adjustedCheckIn1 = adjustTime(checkIns[0]?.time);
+                            const adjustedCheckOut1 = adjustTime(checkOuts[0]?.time);
+                            const adjustedCheckIn2 = adjustTime(checkIns[1]?.time);
+                            const adjustedCheckOut2 = adjustTime(checkOuts[1]?.time);
+
+                            tableRows += `
+                                <tr class="text-center border-b">
+                                    <td class="p-2 border-x">${formattedDate}</td>
+                                    <td class="p-2 border-x">${dayName}</td>
+                                    <td class="p-2 border-x">${projectsHtml}</td>
+                                    <td class="p-2 border-x">${descriptionsHtml}</td>
+                                    <td class="p-2 border-x align-top text-left">${locationAndTimesHtml}</td>
+                                    <td class="p-2 border-x">${adjustedCheckIn1 || ''}</td>
+                                    <td class="p-2 border-x">${adjustedCheckOut1 || ''}</td>
+                                    <td class="p-2 border-x">${adjustedCheckIn2 || ''}</td>
+                                    <td class="p-2 border-x">${adjustedCheckOut2 || ''}</td>
+                                    <td class="p-2 border-x">${(record.regularHours || 0).toFixed(2)}</td>
+                                    <td class="p-2 border-x text-red-600">${(record.overtimeHours || 0).toFixed(2)}</td>
+                                    <td class="p-2 border-x font-bold">${(record.totalHours || 0).toFixed(2)}</td>
+                                </tr>`;
+                        } else {
+                             tableRows += `
+                                <tr class="text-center border-b bg-gray-50 text-gray-400">
+                                    <td class="p-2 border-x">${formattedDate}</td>
+                                    <td class="p-2 border-x">${dayName}</td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                    <td class="p-2 border-x"></td>
+                                </tr>`;
+                        }
+                    }
+                    
+                    const monthSelect = elements.reports.monthSelect;
+                    const yearSelect = elements.reports.yearSelect;
+                    const monthName = monthSelect.options[monthSelect.selectedIndex].text;
+                    
+                    elements.reports.content.innerHTML = `
+                        <div id="employee-report-to-export" class="bg-white p-6 md:p-0">
+                            <header class="flex justify-between items-start pb-4 border-b mb-6 px-6 md:px-0">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800">Evolution Mec Srls</h2>
+                                    <p class="text-gray-500">Riepilogo Ore Lavorative</p>
+                                </div>
+                                <div class="text-right text-sm">
+                                    <p><strong>Dipendente:</strong> ${state.loggedInEmployee.name}</p>
+                                    <p><strong>Mese:</strong> ${monthName} ${year}</p>
+                                    <p><strong>Data Stampa:</strong> ${new Date().toLocaleDateString('it-IT')}</p>
+                                </div>
+                            </header>
+                            <main>
+                                <div class="report-table-container">
+                                    <table class="w-full text-xs" id="employee-report-table">
+                                        <thead class="bg-gray-100">
+                                            <tr>
+                                                <th class="p-2 border">Data</th>
+                                                <th class="p-2 border">Giorno</th>
+                                                <th class="p-2 border">Commessa</th>
+                                                <th class="p-2 border">Descrizione</th>
+                                                <th class="p-2 border">Luogo (GPS)</th>
+                                                <th class="p-2 border">Entrata</th>
+                                                <th class="p-2 border">Uscita</th>
+                                                <th class="p-2 border">Entrata</th>
+                                                <th class="p-2 border">Uscita</th>
+                                                <th class="p-2 border">Ord.</th>
+                                                <th class="p-2 border">Straord.</th>
+                                                <th class="p-2 border">Totale</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${tableRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </main>
+                            <footer class="mt-8 pt-4 border-t text-sm px-6 md:px-0">
+                                <div class="flex justify-between items-end">
+                                    <div class="font-bold">
+                                        <p>Totale Ore Ordinarie: <span class="text-blue-700">${totalOrd.toFixed(2)}</span></p>
+                                        <p>Totale Ore Straordinario: <span class="text-red-700">${totalStraord.toFixed(2)}</span></p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="mb-12">Firma del Dipendente</p>
+                                        <p class="border-t pt-2">_________________________</p>
+                                    </div>
+                                </div>
+                            </footer>
+                        </div>
+                    `;
+                    elements.reports.exportButtons.classList.remove('hidden');
+
+                } catch (error) {
+                    elements.reports.content.innerHTML = `<p class="text-center text-red-500">Errore nel caricare il report. (${error.message})</p>`;
+                }
+            }
+            
+            function handleEmployeeExportPNG() {
+                const reportElement = document.getElementById('employee-report-to-export');
+                if (reportElement) {
+                    html2canvas(reportElement, {
+                        scale: 3, // Higher resolution
+                        useCORS: true,
+                        windowWidth: reportElement.scrollWidth,
+                        windowHeight: reportElement.scrollHeight,
+                    }).then(canvas => {
+                        const link = document.createElement('a');
+                        link.download = `Riepilogo-${state.loggedInEmployee.name}-${new Date().toISOString().slice(0, 10)}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                    });
+                }
+            }
+            
+            function handleEmployeeExportPDF() {
+                const { jsPDF } = window.jspdf;
+                const reportTable = document.getElementById('employee-report-table');
+                const reportElement = document.getElementById('employee-report-to-export');
+                if (!reportTable || !reportElement) return;
+
+                const doc = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const monthSelect = elements.reports.monthSelect;
+                const yearSelect = elements.reports.yearSelect;
+                const monthName = monthSelect.options[monthSelect.selectedIndex].text;
+                const year = yearSelect.value;
+                const employeeName = state.loggedInEmployee.name;
+
+                // --- Header ---
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Evolution Mec Srls', 14, 20);
+
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Riepilogo Ore Lavorative', 14, 28);
+                
+                doc.setFontSize(10);
+                doc.text(`Dipendente: ${employeeName}`, 283, 20, { align: 'right' });
+                doc.text(`Mese: ${monthName} ${year}`, 283, 26, { align: 'right' });
+                doc.text(`Data Stampa: ${new Date().toLocaleDateString('it-IT')}`, 283, 32, { align: 'right' });
+                doc.setLineWidth(0.5);
+                doc.line(14, 38, 283, 38);
+
+                // --- Table ---
+                doc.autoTable({
+                    html: '#employee-report-table',
+                    startY: 45,
+                    theme: 'grid',
+                     headStyles: {
+                        fillColor: [230, 230, 230],
+                        textColor: [30, 30, 30],
+                        fontStyle: 'bold',
+                        lineWidth: 0.1,
+                        lineColor: [200, 200, 200]
+                    },
+                    styles: {
+                        fontSize: 7,
+                        cellPadding: 1.5,
+                        lineWidth: 0.1,
+                        lineColor: [200, 200, 200],
+                        valign: 'top'
+                    },
+                     columnStyles: {
+                        10: { fontStyle: 'bold', textColor: [200, 0, 0] }, // Straord. column
+                        11: { fontStyle: 'bold' } // Totale column
+                    },
+                    didParseCell: function (data) {
+                        if (data.cell.section === 'body' && data.column.index === 4 && data.cell.raw) {
+                             data.cell.text = data.cell.raw.innerText.split('\n');
+                        }
+                    }
+                });
+
+                // --- Footer ---
+                const finalY = doc.lastAutoTable.finalY || 200;
+                const totalsElement = reportElement.querySelector('footer .font-bold');
+                const totalOrdText = totalsElement.children[0].textContent;
+                const totalStraordText = totalsElement.children[1].textContent;
+                
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text(totalOrdText, 14, finalY + 15);
+                doc.text(totalStraordText, 14, finalY + 22);
+
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Firma del Dipendente', 283, finalY + 20, { align: 'right' });
+                doc.setLineWidth(0.2);
+                doc.line(220, finalY + 30, 283, finalY + 30);
+
+
+                // --- Save PDF ---
+                doc.save(`Riepilogo-${employeeName}-${monthName}-${year}.pdf`);
+            }
+            
+            elements.reports.openBtn.addEventListener('click', () => {
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth();
+                const months = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+                
+                elements.reports.monthSelect.innerHTML = months.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+                elements.reports.yearSelect.innerHTML = '';
+                for (let y = currentYear; y >= currentYear - 3; y--) {
+                    elements.reports.yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+                }
+
+                elements.reports.modal.classList.remove('hidden');
+                elements.reports.modal.classList.add('flex');
+                generateEmployeeReport();
+            });
+
+            elements.reports.closeBtn.addEventListener('click', () => {
+                elements.reports.modal.classList.add('hidden');
+                elements.reports.modal.classList.remove('flex');
+            });
+
+            elements.reports.viewBtn.addEventListener('click', generateEmployeeReport);
+            elements.reports.exportPngBtn.addEventListener('click', handleEmployeeExportPNG);
+            elements.reports.exportPdfBtn.addEventListener('click', handleEmployeeExportPDF);
+
+            // --- Initialization ---
+            async function init() {
+                try {
+                    elements.loading.message.textContent = 'Caricamento modelli AI...';
+                    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                    ]);
+                    faceApiModelsLoaded = true;
+                    elements.loading.message.textContent = 'Modelli caricati. Avvio...';
+                    switchView('face-recognition-view');
+                    startFaceRecognition();
+                } catch (error) {
+                    showAlert("Impossibile caricare i modelli di riconoscimento facciale. Si prega di aggiornare la pagina.");
+                }
+            }
+
+            elements.main.actionBtn.addEventListener('click', showVerificationModal);
+            elements.verification.cancelBtn.addEventListener('click', hideVerificationModal);
+            
+            elements.main.logoutBtn.addEventListener('click', () => {
+                state.loggedInEmployee = null;
+                state.recognizedEmployee = null;
+                clearInterval(recognitionInterval);
+                switchView('face-recognition-view');
+                startFaceRecognition();
+            });
+
+            init();
+        });
+    </script>
+</body>
+</html>
+

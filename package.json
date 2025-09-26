@@ -4,22 +4,42 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "build:css": "tailwindcss -i ./src/input.css -o ./html/kiosk/assets/libs/tailwind.min.css --minify",
+    "dev:css": "tailwindcss -i ./src/input.css -o ./html/kiosk/assets/libs/tailwind.css --watch"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.13",
     "@tensorflow/tfjs": "^4.22.0",
     "bcryptjs": "^3.0.2",
     "canvas": "^3.2.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
     "express-async-handler": "^1.2.0",
     "face-api.js": "^0.22.2",
+    "html2canvas": "^1.4.1",
+    "html5-qrcode": "^2.3.8",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.4.1"
+    "jspdf": "^3.0.3",
+    "mongoose": "^8.18.2",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abdouchabbi/evolution-mec.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abdouchabbi/evolution-mec/issues"
+  },
+  "homepage": "https://github.com/abdouchabbi/evolution-mec#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.13",
+    "tailwindcss": "^4.1.13"
   }
 }

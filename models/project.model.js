@@ -1,44 +1,12 @@
+﻿const mongoose = require('mongoose');
 
-// -----------------------------------------------------------------------------
-// ملف نموذج المشروع (models/project.model.js)
-// -----------------------------------------------------------------------------
-// هذا الملف يعرف "هيكل" (Schema) بيانات المشروع.
-// الهيكل يحدد الحقول التي سيمتلكها كل مشروع، وأهمها هو ربط المشروع
-// بعميل معين وتحديد سعر الساعة لهذا المشروع.
-// -----------------------------------------------------------------------------
-
-// 1. استيراد مكتبة Mongoose
-// -----------------------------------------------------------------------------
-const mongoose = require('mongoose');
-
-// 2. تعريف هيكل بيانات المشروع (ProjectSchema)
-// -----------------------------------------------------------------------------
 const ProjectSchema = new mongoose.Schema({
-    // حقل لاسم المشروع
-    name: {
-        type: String,       // نوع البيانات: نص
-        required: true,     // هذا الحقل إجباري
-        unique: true,       // يجب أن يكون اسم كل مشروع فريدًا
-        trim: true          // إزالة المسافات الفارغة
-    },
-    // حقل لربط المشروع بعميل معين
-    clientName: {
-        type: String,       // نوع البيانات: نص (سيحتوي على اسم العميل)
-        required: true      // من الضروري ربط كل مشروع بعميل
-    },
-    // حقل لتحديد سعر الساعة الخاص بهذا المشروع
-    rate: {
-        type: Number,       // نوع البيانات: رقم
-        required: true      // هذا الحقل إجباري للفوترة
-    },
-    // حقل لتسجيل تاريخ إنشاء المشروع تلقائيًا
-    createdAt: {
-        type: Date,         // نوع البيانات: تاريخ
-        default: Date.now   // القيمة الافتراضية هي تاريخ الإنشاء الحالي
-    }
+    kioskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kiosk', required: true },
+    name: { type: String, required: true, trim: true },
+    clientName: { type: String, required: true },
+    rate: { type: Number, required: true },
+    createdAt: { type: Date, default: Date.now }
 });
 
-// 3. تصدير النموذج (Model)
-// -----------------------------------------------------------------------------
-// نقوم بإنشاء وتصدير النموذج المسمى "Project" بناءً على الهيكل الذي عرفناه.
+ProjectSchema.index({ name: 1, kioskId: 1 }, { unique: true });
 module.exports = mongoose.model('Project', ProjectSchema);

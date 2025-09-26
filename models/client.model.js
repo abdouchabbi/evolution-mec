@@ -1,53 +1,13 @@
+﻿const mongoose = require('mongoose');
 
-// -----------------------------------------------------------------------------
-// ملف نموذج العميل (models/client.model.js)
-// -----------------------------------------------------------------------------
-// هذا الملف يعرف "هيكل" (Schema) بيانات العميل.
-// الهيكل يحدد الحقول التي سيمتلكها كل عميل في قاعدة البيانات،
-// وأنواع البيانات لهذه الحقول.
-// -----------------------------------------------------------------------------
-
-// 1. استيراد مكتبة Mongoose
-// -----------------------------------------------------------------------------
-const mongoose = require('mongoose');
-
-// 2. تعريف هيكل بيانات العميل (ClientSchema)
-// -----------------------------------------------------------------------------
 const ClientSchema = new mongoose.Schema({
-    // حقل لاسم العميل
-    name: {
-        type: String,       // نوع البيانات: نص
-        required: true,     // هذا الحقل إجباري
-        unique: true,       // يجب أن يكون اسم كل عميل فريدًا
-        trim: true          // إزالة المسافات الفارغة من البداية والنهاية
-    },
-    // حقل للبريد الإلكتروني للعميل
-    email: {
-        type: String,       // نوع البيانات: نص
-        required: false,    // هذا الحقل اختياري
-        trim: true,
-        lowercase: true     // سيتم تخزين البريد الإلكتروني بأحرف صغيرة
-    },
-    // حقل لرقم هاتف العميل
-    phone: {
-        type: String,       // نوع البيانات: نص
-        required: false,    // هذا الحقل اختياري
-        trim: true
-    },
-    // حقل لعنوان العميل
-    address: {
-        type: String,       // نوع البيانات: نص
-        required: false,    // هذا الحقل اختياري
-        trim: true
-    },
-    // حقل لتسجيل تاريخ إنشاء سجل العميل تلقائيًا
-    createdAt: {
-        type: Date,         // نوع البيانات: تاريخ
-        default: Date.now   // القيمة الافتراضية هي تاريخ الإنشاء الحالي
-    }
+    kioskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kiosk', required: true },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: false, trim: true, lowercase: true },
+    phone: { type: String, required: false, trim: true },
+    address: { type: String, required: false, trim: true },
+    createdAt: { type: Date, default: Date.now }
 });
 
-// 3. تصدير النموذج (Model)
-// -----------------------------------------------------------------------------
-// نقوم بإنشاء وتصدير النموذج المسمى "Client" بناءً على الهيكل الذي عرفناه.
+ClientSchema.index({ name: 1, kioskId: 1 }, { unique: true });
 module.exports = mongoose.model('Client', ClientSchema);

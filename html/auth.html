@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lavoro Track - Autenticazione</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .view { display: none; }
+        .view.active { display: block; }
+        body {
+            background-image: url('https://i.ibb.co/35y3mSYd/Lucid-Origin-Background-A-deep-charcoal-canvas-111827-with-a-s-1.jpg');
+            background-size: cover;
+            background-position: center center;
+            background-attachment: fixed;
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .feedback {
+            transition: all 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        .feedback.show {
+            max-height: 50px; /* Adjust as needed */
+            opacity: 1;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md">
+        <!-- Login View -->
+        <div id="login-view" class="view active glass-card text-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6">Bentornato</h2>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="login-email" class="block text-sm font-medium text-gray-300">Email</label>
+                    <input type="email" id="login-email" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
+                </div>
+                <div class="mb-6">
+                    <label for="login-password" class="block text-sm font-medium text-gray-300">Password</label>
+                    <input type="password" id="login-password" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
+                </div>
+                <button type="submit" id="login-btn" class="w-full flex justify-center items-center bg-cyan-500 text-white py-2 px-4 rounded-md hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors">
+                    <span>Login</span>
+                </button>
+                <p id="login-feedback" class="feedback text-sm text-center"></p>
+            </form>
+            <div class="text-center mt-4 text-sm">
+                <a href="#forgot-password" id="forgot-password-link" class="font-medium text-cyan-400 hover:text-cyan-300">Password dimenticata?</a>
+            </div>
+            <div class="text-center mt-2 text-sm">
+                <p class="text-gray-400">Non hai un account? <a href="#register" id="show-register-link" class="font-medium text-cyan-400 hover:text-cyan-300">Registrati</a></p>
+            </div>
+        </div>
+
+        <!-- Register View -->
+        <div id="register-view" class="view glass-card text-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6">Crea il tuo Account</h2>
+            <form id="register-form">
+                <div class="mb-4">
+                    <label for="register-company" class="block text-sm font-medium text-gray-300">Nome Azienda</label>
+                    <input type="text" id="register-company" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="register-name" class="block text-sm font-medium text-gray-300">Il tuo Nome Completo</label>
+                    <input type="text" id="register-name" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="register-email" class="block text-sm font-medium text-gray-300">Indirizzo Email</label>
+                    <input type="email" id="register-email" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                </div>
+                <div class="mb-6">
+                    <label for="register-password" class="block text-sm font-medium text-gray-300">Password</label>
+                    <input type="password" id="register-password" required minlength="6" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                </div>
+                <button type="submit" id="register-btn" class="w-full flex justify-center items-center bg-cyan-500 text-white py-2 px-4 rounded-md hover:bg-cyan-600 transition-colors">
+                    <span>Crea Account</span>
+                </button>
+                 <p id="register-feedback" class="feedback text-sm text-center"></p>
+            </form>
+            <div class="text-center mt-4 text-sm">
+                <p class="text-gray-400">Hai già un account? <a href="#login" id="show-login-link-from-register" class="font-medium text-cyan-400 hover:text-cyan-300">Login</a></p>
+            </div>
+        </div>
+
+        <!-- Forgot/Reset Password View -->
+        <div id="forgot-view" class="view glass-card text-white p-8 rounded-lg shadow-md">
+            <!-- Step 1: Forgot Password -->
+            <div id="forgot-step-1">
+                <h2 class="text-2xl font-bold text-center mb-6">Reimposta la tua password</h2>
+                <p class="text-center text-gray-400 mb-4">Inserisci la tua email e ti invieremo un link per rientrare nel tuo account.</p>
+                <form id="forgot-form">
+                    <div class="mb-4">
+                        <label for="forgot-email" class="block text-sm font-medium text-gray-300">Email</label>
+                        <input type="email" id="forgot-email" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                    </div>
+                    <button type="submit" id="forgot-btn" class="w-full flex justify-center items-center bg-cyan-500 text-white py-2 px-4 rounded-md hover:bg-cyan-600 transition-colors">
+                        <span>Invia Link di Reset</span>
+                    </button>
+                    <p id="forgot-feedback" class="feedback text-sm text-center"></p>
+                </form>
+                <div class="text-center mt-4 text-sm">
+                    <a href="#login" id="back-to-login-link" class="font-medium text-cyan-400 hover:text-cyan-300">Torna al Login</a>
+                </div>
+            </div>
+            <!-- Step 2: Reset Password -->
+            <div id="reset-step-2" class="hidden">
+                 <h2 class="text-2xl font-bold text-center mb-6">Imposta una nuova password</h2>
+                 <form id="reset-form">
+                    <div class="mb-4">
+                        <label for="reset-password" class="block text-sm font-medium text-gray-300">Nuova Password</label>
+                        <input type="password" id="reset-password" required minlength="6" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                    </div>
+                    <div class="mb-6">
+                        <label for="reset-confirm-password" class="block text-sm font-medium text-gray-300">Conferma Nuova Password</label>
+                        <input type="password" id="reset-confirm-password" required minlength="6" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm">
+                    </div>
+                    <button type="submit" id="reset-btn" class="w-full flex justify-center items-center bg-cyan-500 text-white py-2 px-4 rounded-md hover:bg-cyan-600 transition-colors">
+                        <span>Aggiorna Password</span>
+                    </button>
+                    <p id="reset-feedback" class="feedback text-sm text-center"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_URL = 'http://localhost:5000/api/auth';
+            const views = document.querySelectorAll('.view');
+            let resetToken = null;
+
+            const spinner = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Elaborazione...</span>`;
+
+            // --- Helper Functions ---
+            function setButtonLoading(button, isLoading, originalText) {
+                if (isLoading) {
+                    button.disabled = true;
+                    button.innerHTML = spinner;
+                } else {
+                    button.disabled = false;
+                    button.innerHTML = `<span>${originalText}</span>`;
+                }
+            }
+
+            function showFeedback(element, message, isSuccess) {
+                element.textContent = message;
+                element.className = `feedback text-sm text-center ${isSuccess ? 'text-green-400' : 'text-red-400'}`;
+                setTimeout(() => element.classList.add('show'), 10);
+            }
+            
+            function hideFeedback(element) {
+                element.classList.remove('show');
+            }
+
+            // --- View Switching Logic ---
+            function switchView(viewId) {
+                views.forEach(view => view.classList.remove('active'));
+                document.getElementById(viewId).classList.add('active');
+            }
+
+            function handleHashChange() {
+                const hash = window.location.hash;
+                const tokenMatch = hash.match(/#reset-password\/(.+)/);
+
+                if (tokenMatch && tokenMatch[1]) {
+                    resetToken = tokenMatch[1];
+                    switchView('forgot-view');
+                    document.getElementById('forgot-step-1').classList.add('hidden');
+                    document.getElementById('reset-step-2').classList.remove('hidden');
+                } else if (hash === '#register') {
+                    switchView('register-view');
+                } else if (hash === '#forgot-password') {
+                     switchView('forgot-view');
+                     document.getElementById('forgot-step-1').classList.remove('hidden');
+                     document.getElementById('reset-step-2').classList.add('hidden');
+                } else {
+                    switchView('login-view');
+                }
+            }
+            
+            window.addEventListener('hashchange', handleHashChange, false);
+            handleHashChange();
+
+            // --- Navigation Links ---
+            document.querySelectorAll('#show-register-link, #show-login-link-from-register, #forgot-password-link, #back-to-login-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.hash = e.currentTarget.getAttribute('href');
+                });
+            });
+            
+            // --- Robust API Handler ---
+            async function handleApiRequest(url, options, successCallback, errorCallback) {
+                try {
+                    const response = await fetch(url, options);
+
+                    if (!response.ok) {
+                        let errorMessage = 'Si è verificato un errore imprevisto.';
+                        try {
+                            // Try to parse the error response as JSON
+                            const errorData = await response.json();
+                            if (errorData && errorData.message) {
+                                errorMessage = errorData.message;
+                            }
+                        } catch (jsonError) {
+                            // If it's not JSON, it might be an HTML error page from the server
+                            console.error("Could not parse error response as JSON. Server may have sent HTML or a plain text error.");
+                        }
+                        throw new Error(errorMessage);
+                    }
+
+                    const data = await response.json();
+                    successCallback(data);
+
+                } catch (error) {
+                    errorCallback(error);
+                }
+            }
+
+            // --- Form Handlers ---
+            const loginForm = document.getElementById('login-form');
+            const loginBtn = document.getElementById('login-btn');
+            const loginFeedback = document.getElementById('login-feedback');
+            
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                hideFeedback(loginFeedback);
+                setButtonLoading(loginBtn, true, 'Login');
+
+                handleApiRequest(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('login-email').value,
+                        password: document.getElementById('login-password').value
+                    })
+                }, (data) => { // Success
+                    localStorage.setItem('authToken', data.token);
+                    if (data.kioskId) localStorage.setItem('kioskId', data.kioskId);
+                    showFeedback(loginFeedback, 'Accesso riuscito! Reindirizzamento...', true);
+                    setTimeout(() => window.location.href = 'admin.html', 1500);
+                }, (error) => { // Error
+                    let displayMessage = error.message;
+                    // **MODIFICA: Traduzione del messaggio di errore specifico**
+                    if (error.message.toLowerCase().includes('invalid email or password')) {
+                        displayMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+                    }
+                    showFeedback(loginFeedback, displayMessage, false);
+                    setButtonLoading(loginBtn, false, 'Login');
+                });
+            });
+
+            const registerForm = document.getElementById('register-form');
+            const registerBtn = document.getElementById('register-btn');
+            const registerFeedback = document.getElementById('register-feedback');
+
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                hideFeedback(registerFeedback);
+                setButtonLoading(registerBtn, true, 'Crea Account');
+                
+                handleApiRequest(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        companyName: document.getElementById('register-company').value,
+                        ownerName: document.getElementById('register-name').value,
+                        email: document.getElementById('register-email').value,
+                        password: document.getElementById('register-password').value
+                    })
+                }, (data) => { // Success
+                    localStorage.setItem('authToken', data.token);
+                    if (data.kioskId) localStorage.setItem('kioskId', data.kioskId);
+                    showFeedback(registerFeedback, 'Registrazione riuscita! Reindirizzamento...', true);
+                    setTimeout(() => window.location.href = 'admin.html', 1500);
+                }, (error) => { // Error
+                    let displayMessage = error.message;
+                     if (error.message.toLowerCase().includes('already exists')) {
+                        displayMessage = 'مستخدم بهذا البريد الإلكتروني موجود بالفعل.';
+                    }
+                    showFeedback(registerFeedback, displayMessage, false);
+                    setButtonLoading(registerBtn, false, 'Crea Account');
+                });
+            });
+
+            const forgotForm = document.getElementById('forgot-form');
+            const forgotBtn = document.getElementById('forgot-btn');
+            const forgotFeedback = document.getElementById('forgot-feedback');
+
+            forgotForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                hideFeedback(forgotFeedback);
+                setButtonLoading(forgotBtn, true, 'Invia Link di Reset');
+
+                handleApiRequest(`${API_URL}/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: document.getElementById('forgot-email').value })
+                }, (data) => { // Success
+                    showFeedback(forgotFeedback, "Se esiste un account, è stato inviato un link di reset.", true);
+                    setButtonLoading(forgotBtn, false, 'Invia Link di Reset');
+                }, (error) => { // Error
+                    showFeedback(forgotFeedback, error.message, false);
+                    setButtonLoading(forgotBtn, false, 'Invia Link di Reset');
+                });
+            });
+
+            const resetForm = document.getElementById('reset-form');
+            const resetBtn = document.getElementById('reset-btn');
+            const resetFeedback = document.getElementById('reset-feedback');
+
+            resetForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                hideFeedback(resetFeedback);
+                const password = document.getElementById('reset-password').value;
+                const confirmPassword = document.getElementById('reset-confirm-password').value;
+                
+                if (password !== confirmPassword) return showFeedback(resetFeedback, "Le password non corrispondono.", false);
+                if (!resetToken) return showFeedback(resetFeedback, "Token di reset non valido o mancante.", false);
+
+                setButtonLoading(resetBtn, true, 'Aggiorna Password');
+                
+                handleApiRequest(`${API_URL}/reset-password/${resetToken}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                }, (data) => { // Success
+                    showFeedback(resetFeedback, "Password reimpostata con successo! Reindirizzamento al login...", true);
+                    setTimeout(() => window.location.hash = 'login', 2000);
+                }, (error) => { // Error
+                     let displayMessage = error.message;
+                     if (error.message.toLowerCase().includes('token is invalid or has expired')) {
+                        displayMessage = 'الرمز غير صالح أو انتهت صلاحيته.';
+                    }
+                    showFeedback(resetFeedback, displayMessage, false);
+                    setButtonLoading(resetBtn, false, 'Aggiorna Password');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+
