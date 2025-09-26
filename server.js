@@ -1,19 +1,22 @@
 ﻿require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
+const cors = require("cors"); // 1. استيراد مكتبة CORS
 
 const app = express();
 
 // --- Middleware ---
-// Enables CORS for all requests, fixing the browser error
+
+// 2. تفعيل CORS لجميع الطلبات
+// هذا السطر هو الحل الرئيسي للمشكلة
 app.use(cors());
+
 // Parses incoming JSON requests
 app.use(express.json());
 
 // --- Environment Variables ---
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/lavorotrack";
+const MONGO_URI = process.env.MONGO_URI;
 
 // --- Database Connection ---
 mongoose.connect(MONGO_URI)
@@ -48,4 +51,4 @@ app.get("/", (req, res) => {
 });
 
 // --- Start Server ---
-app.listen(PORT, () => console.log(`Server is running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
