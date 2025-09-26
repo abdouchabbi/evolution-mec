@@ -40,7 +40,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
-    const resetUrl = `http://YOUR_FRONTEND_URL/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/auth.html#reset-password/${resetToken}`;
     try {
         const templatePath = path.join(__dirname, '..', 'templates', 'passwordReset.html');
         let htmlContent = fs.existsSync(templatePath) ? fs.readFileSync(templatePath, 'utf8') : `<a href="${resetUrl}">Reset</a>`;
